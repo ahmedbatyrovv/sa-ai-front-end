@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Toast from './components/Toast';
@@ -13,14 +13,148 @@ function App() {
   const [isTyping, setIsTyping] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState('');
   const [toast, setToast] = useState(null);
+  const [chats, setChats] = useState([]);
+  const [currentChatId, setCurrentChatId] = useState(null);
+  const [showChatList, setShowChatList] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [theme, setTheme] = useState('dark');
+  const [accentColor, setAccentColor] = useState('teal');
+  const [language, setLanguage] = useState('en');
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
+  const t = (key) => {
+    const translations = {
+      en: {
+        'new-chat': 'New Chat',
+        'clear-conversation': 'Clear Conversation',
+        'chat-history': 'Chat History',
+        'search-chats': 'Search chats...',
+        'no-chats': 'No chats yet. Start a new conversation!',
+        'no-chats-found': 'No chats found.',
+        'untitled': 'Untitled',
+        'settings': 'Settings',
+        'profile': 'Profile',
+        'logout': 'Logout',
+        'theme': 'Theme',
+        'dark': 'Dark',
+        'light': 'Light',
+        'accent': 'Accent Color',
+        'teal': 'Teal',
+        'blue': 'Blue',
+        'language': 'Language',
+        'english': 'English',
+        'russian': 'Russian',
+        'logged-out': 'Logged out successfully',
+        'conversation-cleared': 'Conversation cleared',
+        'settings-opened': 'Settings opened',
+        'what-do-you-want': 'What do you want to know?',
+        'suggestions': [
+          { text: 'What can you help me with?', icon: 'search' },
+          { text: 'Explain quantum computing', icon: 'news' },
+          { text: 'Help me write code', icon: 'personas' }
+        ]
+      },
+      ru: {
+        'new-chat': 'Новый чат',
+        'clear-conversation': 'Очистить разговор',
+        'chat-history': 'История чатов',
+        'search-chats': 'Поиск чатов...',
+        'no-chats': 'Чатов пока нет. Начните новый разговор!',
+        'no-chats-found': 'Чаты не найдены.',
+        'untitled': 'Без названия',
+        'settings': 'Настройки',
+        'profile': 'Профиль',
+        'logout': 'Выйти',
+        'theme': 'Тема',
+        'dark': 'Тёмная',
+        'light': 'Светлая',
+        'accent': 'Цвет акцента',
+        'teal': 'Бирюзовый',
+        'blue': 'Синий',
+        'language': 'Язык',
+        'english': 'Английский',
+        'russian': 'Русский',
+        'logged-out': 'Успешно вышли из аккаунта',
+        'conversation-cleared': 'Разговор очищен',
+        'settings-opened': 'Настройки открыты',
+        'what-do-you-want': 'Что вы хотите узнать?',
+        'suggestions': [
+          { text: 'Чем вы можете помочь?', icon: 'search' },
+          { text: 'Объясните квантовые вычисления', icon: 'news' },
+          { text: 'Помогите написать код', icon: 'personas' }
+        ]
+      }
+    };
+    return translations[language][key] || key;
+  };
+
+  const currentTitle = useMemo(() => {
+    if (!currentChatId) return t('new-chat');
+    const chat = chats.find(c => c.id === currentChatId);
+    return chat?.title || t('untitled');
+  }, [chats, currentChatId, language]);
+
   useEffect(() => {
-    const currentUser = localStorage.getItem('currentUser');
-    if (currentUser) {
-      setUser(JSON.parse(currentUser));
+    const savedChats = localStorage.getItem('chats');
+    if (savedChats) {
+      const parsed = JSON.parse(savedChats);
+      setChats(parsed);
+      if (parsed.length > 0) {
+        const lastChat = parsed[parsed.length - 1];
+        setCurrentChatId(lastChat.id);
+        setMessages(lastChat.messages || []);
+      }
     }
+  }, []);
+
+  useEffect(() => {
+    if (currentChatId && messages.length > 0) {
+      setChats(prevChats => {
+        const updated = prevChats.map(c => {
+          if (c.id === currentChatId) {
+            let newTitle = c.title;
+            if (newTitle === '' && messages.length >= 2) {
+              newTitle = messages[0].text.substring(0, 50) + (messages[0].text.length > 50 ? '...' : '');
+            }
+            return { ...c, title: newTitle, messages: messages };
+          }
+          return c;
+        });
+        localStorage.setItem('chats', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [messages, currentChatId]);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) setTheme(savedTheme);
+    const savedAccent = localStorage.getItem('accentColor');
+    if (savedAccent) setAccentColor(savedAccent);
+    const savedLang = localStorage.getItem('language');
+    if (savedLang) setLanguage(savedLang);
+  }, []);
+
+  useEffect(() => {
+    document.body.className = `${theme} accent-${accentColor}`;
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('accentColor', accentColor);
+    localStorage.setItem('language', language);
+  }, [theme, accentColor, language]);
+
+  useEffect(() => {
+    const check = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      setSidebarOpen(!mobile);
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
   }, []);
 
   const scrollToBottom = () => {
@@ -41,14 +175,58 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
-    setToast({ message: 'Logged out successfully', type: 'info' });  // Устанавливаем toast ДО setUser(null)
-    setUser(null);  // Теперь переключаемся на login/signup, но toast отобразится там
+    setToast({ message: t('logged-out'), type: 'info' });
+    setUser(null);
     setMessages([]);
     setInput('');
+    setShowSettings(false);
+  };
+
+  const handleNewChat = () => {
+    setCurrentChatId(null);
+    setMessages([]);
+    setInput('');
+    setStreamingMessage('');
+    setShowChatList(false);
+  };
+
+  const handleClearChat = () => {
+    setMessages([]);
+    setInput('');
+    setStreamingMessage('');
+    setToast({ message: t('conversation-cleared'), type: 'info' });
+  };
+
+  const handleSettings = () => {
+    setShowSettings(true);
+    setToast({ message: t('settings-opened'), type: 'info' });
+  };
+
+  const handleThemeToggle = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const handleAccentChange = (newAccent) => {
+    setAccentColor(newAccent);
+  };
+
+  const handleLanguageChange = (newLang) => {
+    setLanguage(newLang);
   };
 
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
+
+    if (!currentChatId) {
+      const newId = Date.now();
+      const newChat = { id: newId, title: '', messages: [] };
+      setCurrentChatId(newId);
+      setChats(prev => {
+        const newList = [newChat, ...prev];
+        localStorage.setItem('chats', JSON.stringify(newList));
+        return newList;
+      });
+    }
 
     const userMessage = {
       id: Date.now(),
@@ -74,7 +252,7 @@ function App() {
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, { ...aiMessage, text: streamingMessage }]);
+      setMessages((prev) => [...prev, aiMessage]);
       setStreamingMessage('');
     } catch (error) {
       console.error('Error generating response:', error);
@@ -102,17 +280,17 @@ function App() {
     adjustTextareaHeight();
   }, [input]);
 
-  const handleNewChat = () => {
-    setMessages([]);
-    setInput('');
-    setStreamingMessage('');
-  };
+  const suggestions = t('suggestions');
 
-  const suggestions = [
-    { text: 'What can you help me with?', icon: 'search' },
-    { text: 'Explain quantum computing', icon: 'news' },
-    { text: 'Help me write code', icon: 'personas' }
-  ];
+  const filteredChats = useMemo(() => {
+    if (!searchQuery.trim()) return chats;
+    return chats.filter(chat => {
+      const titleMatch = chat.title.toLowerCase().includes(searchQuery.toLowerCase());
+      const previewMatch = chat.messages.length > 0 && 
+        chat.messages[chat.messages.length - 1].text.toLowerCase().includes(searchQuery.toLowerCase());
+      return titleMatch || previewMatch;
+    });
+  }, [chats, searchQuery]);
 
   if (!user) {
     if (authMode === 'login') {
@@ -136,72 +314,201 @@ function App() {
     }
   }
 
-  return (
-    <div className="app">
-      <aside className="sidebar">
-        <button className="sidebar-icon active" onClick={handleNewChat}>
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button className="sidebar-icon" onClick={handleNewChat}>
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button className="sidebar-icon">
-          <svg viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-            <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </button>
-        <button className="sidebar-icon">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 20H21M3 20H7.5M7.5 20V4M7.5 20H12M7.5 4H3M7.5 4H12M12 4H21M12 4V20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </button>
-        <button className="sidebar-icon">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button className="sidebar-icon">
-          <svg viewBox="0 0 24 24" fill="none">
-            <rect x="3" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="14" y="3" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="14" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="3" y="14" width="7" height="7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-        <button className="sidebar-icon">
-          <svg viewBox="0 0 24 24" fill="none">
-            <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
-            <path d="M3 9H21" stroke="currentColor" strokeWidth="2"/>
-          </svg>
-        </button>
-        <button className="sidebar-icon">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M12 8V12L15 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
-          </svg>
-        </button>
-        <div className="sidebar-spacer"></div>
-        <button className="sidebar-icon sidebar-profile">
-          <div className="profile-initial">{user?.name?.charAt(0).toUpperCase() || 'U'}</div>
-        </button>
-        <button className="sidebar-icon" onClick={handleLogout} title="Logout">
-          <svg viewBox="0 0 24 24" fill="none">
-            <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      </aside>
+  const headerTitle = !currentChatId ? 'Grok' : currentTitle;
 
+  if (showSettings) {
+    return (
+      <div className={`app ${theme} accent-${accentColor}`}>
+        <div className="settings-screen">
+          <header className="settings-header">
+            <button className="back-btn" onClick={() => setShowSettings(false)}>
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <h1>{t('settings')}</h1>
+            <div className="ai-badge">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </header>
+          <main className="settings-content">
+            <div className="settings-section">
+              <h2>{t('theme')}</h2>
+              <div className="theme-toggle-slider">
+                <button 
+                  className={`slider-btn ${theme === 'light' ? 'active' : ''}`} 
+                  onClick={handleThemeToggle}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="sun-icon">
+                    <circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="2" fill="none"/>
+                    <line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                </button>
+                <div className="slider-track">
+                  <div className={`slider-thumb ${theme === 'dark' ? 'dark-active' : 'light-active'}`} onClick={handleThemeToggle}></div>
+                </div>
+                <button 
+                  className={`slider-btn ${theme === 'dark' ? 'active' : ''}`} 
+                  onClick={handleThemeToggle}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" className="moon-icon">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="settings-section">
+              <h2>{t('accent')}</h2>
+              <div className="accent-selector">
+                <button 
+                  className={`accent-btn ${accentColor === 'teal' ? 'active' : ''}`} 
+                  onClick={() => handleAccentChange('teal')}
+                  style={{ '--accent-btn-color': '#3A8F7A' }}
+                >
+                  <div className="accent-color-swatch"></div>
+                </button>
+                <button 
+                  className={`accent-btn ${accentColor === 'blue' ? 'active' : ''}`} 
+                  onClick={() => handleAccentChange('blue')}
+                  style={{ '--accent-btn-color': '#1E40AF' }}
+                >
+                  <div className="accent-color-swatch"></div>
+                </button>
+              </div>
+            </div>
+            <div className="settings-section">
+              <h2>{t('language')}</h2>
+              <select value={language} onChange={e => handleLanguageChange(e.target.value)}>
+                <option value="en">{t('english')}</option>
+                <option value="ru">{t('russian')}</option>
+              </select>
+            </div>
+            <button className="logout-btn" onClick={handleLogout}>{t('logout')}</button>
+          </main>
+        </div>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      </div>
+    );
+  }
+
+  return (
+    <div className={`app ${theme} accent-${accentColor}`}>
+      <aside className={`sidebar ${showChatList ? 'sidebar-wide' : ''} ${sidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-nav">
+          <button className={`sidebar-icon ${!currentChatId ? 'active' : ''}`} onClick={handleNewChat} title={t('new-chat')}>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button className="sidebar-icon" onClick={handleClearChat} title={t('clear-conversation')}>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button className={`sidebar-icon ${showChatList ? 'active' : ''}`} onClick={() => setShowChatList(!showChatList)} title={t('chat-history')}>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+        <div className="sidebar-content">
+          {showChatList && (
+            <div className="chat-list">
+              <div className="chat-search">
+                <svg viewBox="0 0 24 24" fill="none" className="search-icon">
+                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <input 
+                  type="text" 
+                  placeholder={t('search-chats')} 
+                  value={searchQuery} 
+                  onChange={e => setSearchQuery(e.target.value)} 
+                  className="search-input"
+                />
+              </div>
+              {filteredChats.length === 0 ? (
+                <div className="no-chats">
+                  {searchQuery ? t('no-chats-found') : t('no-chats')}
+                </div>
+              ) : (
+                filteredChats.slice().reverse().map((chat) => (
+                  <button
+                    key={chat.id}
+                    className={`chat-item ${chat.id === currentChatId ? 'active' : ''}`}
+                    onClick={() => {
+                      setMessages(chat.messages || []);
+                      setCurrentChatId(chat.id);
+                      if (isMobile) setShowChatList(false);
+                    }}
+                  >
+                    <div className="chat-title">{chat.title || t('untitled')}</div>
+                    {chat.messages.length > 0 && (
+                      <div className="chat-preview">
+                        {chat.messages[chat.messages.length - 1].text.substring(0, 50)}...
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+        <div className="sidebar-spacer"></div>
+        <div className="sidebar-footer">
+          <button className="sidebar-icon" onClick={handleSettings} title={t('settings')}>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="m20.91 10.29-3.37-1.86a1.68 1.68 0 0 0-2.04.39l-1.17 2.02a1.68 1.68 0 0 1-2.04.39l-1.17-2.02a1.68 1.68 0 0 0-2.04-.39L6.46 10.29a1.68 1.68 0 0 0-.39 2.04l1.17 2.02a1.68 1.68 0 0 1 .39 2.04l-1.17 2.02a1.68 1.68 0 0 0 .39 2.04l3.37 1.86a1.68 1.68 0 0 0 2.04-.39l1.17-2.02a1.68 1.68 0 0 1 2.04-.39l1.17 2.02a1.68 1.68 0 0 0 2.04.39l3.37-1.86a1.68 1.68 0 0 0-.39-2.04l-1.17-2.02a1.68 1.68 0 0 1-.39-2.04l1.17-2.02a1.68 1.68 0 0 0 .39-2.04zM12 13a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <button className="sidebar-icon sidebar-profile" title={t('profile')}>
+            <div className="profile-initial">{user?.name?.charAt(0).toUpperCase() || 'U'}</div>
+          </button>
+          <button className="sidebar-icon" onClick={handleLogout} title={t('logout')}>
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </aside>
+      {isMobile && sidebarOpen && <div className="backdrop" onClick={() => setSidebarOpen(false)} />}
       <div className="main-wrapper">
         <main className="main-content">
+          {isMobile && (
+            <header className="mobile-header">
+              <button className="menu-toggle" onClick={() => setSidebarOpen(prev => !prev)}>
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M3 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+              <div className="current-chat-info">
+                <h2>{headerTitle}</h2>
+                {currentChatId && (
+                  <button className="new-chat-mobile" onClick={handleNewChat}>
+                    {t('new-chat')}
+                  </button>
+                )}
+              </div>
+            </header>
+          )}
           <div className="chat-container">
             {messages.length === 0 && !streamingMessage ? (
               <div className="welcome-screen">
@@ -274,7 +581,7 @@ function App() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="What do you want to know?"
+              placeholder={t('what-do-you-want')}
               className="chat-input"
               rows="1"
               disabled={isTyping}
@@ -333,7 +640,7 @@ function App() {
           )}
         </footer>
       </div>
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}  {/* Toast для главной страницы */}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }
