@@ -1,3 +1,4 @@
+// App.js (no changes needed, as profile is already non-interactive)
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -51,6 +52,7 @@ function App() {
         'logged-out': 'Logged out successfully',
         'conversation-cleared': 'Conversation cleared',
         'settings-opened': 'Settings opened',
+        'logout': 'Logout',
         'what-do-you-want': 'What do you want to know?',
         'suggestions': [
           { text: 'What can you help me with?', icon: 'search' },
@@ -82,6 +84,7 @@ function App() {
         'logged-out': 'Успешно вышли из аккаунта',
         'conversation-cleared': 'Разговор очищен',
         'settings-opened': 'Настройки открыты',
+        'logout': 'Выход',
         'what-do-you-want': 'Что вы хотите узнать?',
         'suggestions': [
           { text: 'Чем вы можете помочь?', icon: 'search' },
@@ -202,10 +205,6 @@ function App() {
   const handleSettings = () => {
     setShowSettings(true);
     setToast({ message: t('settings-opened'), type: 'info' });
-  };
-
-  const handleProfileClick = () => {
-    setShowSettings(true);
   };
 
   const handleThemeToggle = () => {
@@ -408,6 +407,8 @@ function App() {
     );
   }
 
+  const userInitial = user?.name?.charAt(0).toUpperCase() || 'U';
+
   return (
     <div className={`app ${theme} accent-${accentColor}`}>
       <aside className={`sidebar ${showChatList ? 'sidebar-wide' : ''} ${sidebarOpen ? 'open' : ''}`}>
@@ -515,36 +516,23 @@ function App() {
         </div>
         <div className="sidebar-spacer"></div>
         <div className="sidebar-footer">
-          <button className="sidebar-icon sidebar-profile ai-profile profile-wide-item" data-tooltip={t('profile')} onClick={handleProfileClick}>
-            {showChatList ? (
-              <div className="profile-wide ai-profile-wide">
-                <div className="profile-avatar ai-initial">
-                  <svg viewBox="0 0 24 24" fill="none" className="ai-robot-icon-wide">
-                    <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
-                    <circle cx="8" cy="6" r="1" fill="currentColor" opacity="0.8"/>
-                    <circle cx="16" cy="6" r="1" fill="currentColor" opacity="0.8"/>
-                    <path d="M6 14L18 14" stroke="currentColor" strokeWidth="2"/>
-                    <path d="M8 18L10 20M14 20L16 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    {/* Neural accents for wide mode */}
-                    <circle cx="12" cy="12" r="0.5" fill="currentColor" opacity="0.4"/>
-                    <circle cx="9" cy="9" r="0.3" fill="currentColor" opacity="0.4"/>
-                    <circle cx="15" cy="9" r="0.3" fill="currentColor" opacity="0.4"/>
-                  </svg>
-                </div>
-                <div className="profile-info">
-                  <span className="profile-name">{user?.name || 'AI Assistant'}</span>
-                  <span className="profile-subtitle">{t('ai-powered')}</span>
-                </div>
+          <button 
+            className={`sidebar-icon sidebar-profile ${showChatList ? 'profile-wide-item' : ''}`} 
+            data-tooltip={user?.name || t('profile')} 
+          >
+            {!showChatList ? (
+              <div className="profile-initial">
+                <div className="user-avatar">{userInitial}</div>
               </div>
             ) : (
-              <div className="profile-initial ai-initial">
-                <svg viewBox="0 0 24 24" fill="none" className="ai-robot-icon">
-                  <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
-                  <circle cx="8" cy="6" r="1" fill="currentColor" opacity="0.8"/>
-                  <circle cx="16" cy="6" r="1" fill="currentColor" opacity="0.8"/>
-                  <path d="M6 14L18 14" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M8 18L10 20M14 20L16 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
+              <div className="profile-wide">
+                <div className="profile-avatar">
+                  <div className="user-avatar">{userInitial}</div>
+                </div>
+                <div className="profile-info">
+                  <span className="profile-name">{user?.name || t('profile')}</span>
+                  <span className="profile-subtitle">{t('ai-powered')}</span>
+                </div>
               </div>
             )}
           </button>

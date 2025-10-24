@@ -1,3 +1,4 @@
+/* App.css - Updated with smaller, sidebar-fitting profile */
 * {
   margin: 0;
   padding: 0;
@@ -475,7 +476,6 @@ select:focus {
   flex-direction: column;
   gap: 4px;
   padding: 8px 0;
-  align-items: center;
 }
 
 .sidebar-icon {
@@ -537,12 +537,31 @@ select:focus {
   color: var(--text-primary);
 }
 
+/* Updated Profile Styles - Smaller, sidebar-fitting, AI-themed: Compact sizes, subtle neural glow */
 .sidebar-profile {
-  background-color: var(--accent-color);
+  background: linear-gradient(135deg, var(--accent-color), color-mix(in srgb, var(--accent-color) 80%, transparent));
   color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-profile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.1), transparent 50%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.sidebar-profile:hover::before {
+  opacity: 1;
 }
 
 .sidebar-profile::after {
@@ -551,19 +570,119 @@ select:focus {
 }
 
 .sidebar-profile:hover {
-  background-color: color-mix(in srgb, var(--accent-color) 90%, white);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 100%, white 20%), var(--accent-color));
+  box-shadow: 0 4px 12px rgba(58, 143, 122, 0.3);
+  transform: translateY(-1px);
+}
+
+/* AI Neural Glow for Profile - Subtle AI theme */
+.user-avatar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent-color), color-mix(in srgb, var(--accent-color) 70%, #FFFFFF));
+  border-radius: 50%;
+  color: #FFFFFF;
+  font-size: 11px; /* Smaller font */
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 8px rgba(58, 143, 122, 0.4); /* AI glow */
+  transition: box-shadow 0.3s ease;
+}
+
+.user-avatar:hover {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 12px rgba(58, 143, 122, 0.6); /* Enhanced glow on hover */
+}
+
+.profile-wide-item {
+  width: 100%;
+  justify-content: flex-start !important;
+  padding-left: 12px !important;
+  margin-bottom: 4px;
+}
+
+.profile-wide {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Smaller gap */
+  width: 100%;
+  justify-content: flex-start;
+  padding: 8px 12px; /* Smaller padding */
+  background: transparent;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-wide::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.profile-wide:hover::before {
+  opacity: 1;
+}
+
+.profile-wide:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.profile-wide .profile-avatar {
+  flex-shrink: 0;
+  width: 32px; /* Smaller avatar */
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  position: relative;
 }
 
 .profile-initial {
-  font-size: 14px;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px; /* Smaller container */
+  height: 42px;
+  position: relative;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px; /* Smaller gap */
+  flex: 1;
 }
 
 .profile-name {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px; /* Smaller font */
+  font-weight: 600;
   color: #FFFFFF;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  letter-spacing: -0.02em;
+}
+
+.profile-subtitle {
+  font-size: 10px; /* Smaller subtitle */
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .sidebar-toggle {
@@ -576,7 +695,7 @@ select:focus {
 }
 
 /* AI Icon Enhancements */
-.ai-home-icon, .ai-chat-icon, .ai-history-icon, .ai-settings-icon, .ai-robot-icon, .ai-robot-icon-wide {
+.ai-home-icon, .ai-chat-icon, .ai-history-icon, .ai-settings-icon {
   filter: drop-shadow(0 2px 4px rgba(58, 143, 122, 0.2));
   transition: filter 0.3s ease;
 }
@@ -584,109 +703,12 @@ select:focus {
 .sidebar-icon:hover .ai-home-icon,
 .sidebar-icon:hover .ai-chat-icon,
 .sidebar-icon:hover .ai-history-icon,
-.sidebar-icon:hover .ai-settings-icon,
-.sidebar-icon:hover .ai-robot-icon,
-.sidebar-icon:hover .ai-robot-icon-wide {
+.sidebar-icon:hover .ai-settings-icon {
   filter: drop-shadow(0 0 8px rgba(58, 143, 122, 0.4));
 }
 
 .sidebar-icon.active .ai-home-icon {
   filter: drop-shadow(0 0 12px rgba(58, 143, 122, 0.6));
-}
-
-/* Profile AI Theme */
-.sidebar-profile.ai-profile {
-  background: linear-gradient(135deg, var(--accent-color), rgba(58, 143, 122, 0.8));
-  box-shadow: 0 4px 12px rgba(58, 143, 122, 0.3);
-  border-radius: 12px;
-  transition: all 0.3s ease;
-}
-
-.sidebar-profile.ai-profile:hover {
-  background: linear-gradient(135deg, var(--accent-color), rgba(58, 143, 122, 1));
-  box-shadow: 0 6px 20px rgba(58, 143, 122, 0.5);
-  transform: scale(1.05);
-}
-
-.profile-initial.ai-initial {
-  position: relative;
-}
-
-.profile-initial.ai-initial::after {
-  content: '';
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 20px;
-  height: 20px;
-  background: radial-gradient(circle, rgba(58, 143, 122, 0.6) 0%, transparent 70%);
-  border-radius: 50%;
-  animation: ai-pulse 2s infinite;
-}
-
-@keyframes ai-pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.2);
-  }
-}
-
-/* Wide Profile Layout - Integrated as full-width item */
-.profile-wide-item {
-  width: 100%;
-  justify-content: flex-start !important;
-  padding-left: 12px !important;
-  margin-bottom: 4px;
-}
-
-.profile-wide {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  justify-content: flex-start;
-  padding: 12px 12px;
-  background: transparent;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.profile-wide:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.profile-wide .profile-avatar {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.profile-wide .ai-robot-icon-wide {
-  width: 20px;
-  height: 20px;
-}
-
-.profile-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
-}
-
-.profile-subtitle {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 400;
 }
 
 .backdrop {
@@ -796,7 +818,7 @@ select:focus {
 .chat-container {
   max-width: 900px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 24px 24px 0;
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -870,19 +892,6 @@ select:focus {
   width: 18px;
   height: 18px;
   color: var(--text-primary);
-}
-
-.user-avatar {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--accent-color);
-  border-radius: 50%;
-  color: #FFFFFF;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .message-content {
@@ -1095,6 +1104,18 @@ select:focus {
   border-color: var(--accent-color);
 }
 
+/* Desktop padding adjustments */
+@media (min-width: 769px) {
+  .chat-container {
+    padding: 32px 32px 0;
+  }
+
+  .footer {
+    padding: 20px 32px 32px;
+  }
+}
+
+/* Mobile padding adjustments */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -1124,7 +1145,7 @@ select:focus {
   }
 
   .chat-container {
-    padding: 16px;
+    padding: 16px 16px 0;
   }
 
   .welcome-logo svg {
@@ -1241,30 +1262,21 @@ select:focus {
     display: none;
   }
 
-  .sidebar-profile.ai-profile {
-    box-shadow: 0 4px 16px rgba(58, 143, 122, 0.4);
-  }
-
-  .profile-wide-item {
-    width: 100% !important;
-  }
-
   .profile-wide {
-    padding: 10px 12px;
-    gap: 8px;
+    padding: 8px 12px; /* Smaller on mobile too */
+    gap: 6px; /* Even smaller gap on mobile */
   }
 
   .profile-wide .profile-avatar {
-    width: 36px;
-    height: 36px;
-  }
-
-  .profile-wide .ai-robot-icon-wide {
-    width: 18px;
-    height: 18px;
+    width: 28px; /* Smaller on mobile */
+    height: 28px;
   }
 
   .profile-subtitle {
-    font-size: 10px;
+    font-size: 9px; /* Smaller subtitle on mobile */
+  }
+
+  .profile-name {
+    font-size: 12px; /* Smaller name on mobile */
   }
 }
