@@ -38,7 +38,7 @@ function App() {
         'untitled': 'Untitled',
         'settings': 'Settings',
         'profile': 'Profile',
-        'logout': 'Logout',
+        'toggle-sidebar': 'Toggle Sidebar',
         'theme': 'Theme',
         'dark': 'Dark',
         'light': 'Light',
@@ -56,7 +56,8 @@ function App() {
           { text: 'What can you help me with?', icon: 'search' },
           { text: 'Explain quantum computing', icon: 'news' },
           { text: 'Help me write code', icon: 'personas' }
-        ]
+        ],
+        'ai-powered': 'AI-Powered'
       },
       ru: {
         'new-chat': 'Новый чат',
@@ -68,7 +69,7 @@ function App() {
         'untitled': 'Без названия',
         'settings': 'Настройки',
         'profile': 'Профиль',
-        'logout': 'Выйти',
+        'toggle-sidebar': 'Переключить боковую панель',
         'theme': 'Тема',
         'dark': 'Тёмная',
         'light': 'Светлая',
@@ -86,14 +87,15 @@ function App() {
           { text: 'Чем вы можете помочь?', icon: 'search' },
           { text: 'Объясните квантовые вычисления', icon: 'news' },
           { text: 'Помогите написать код', icon: 'personas' }
-        ]
+        ],
+        'ai-powered': 'На базе ИИ'
       }
     };
     return translations[language][key] || key;
   };
 
   const currentTitle = useMemo(() => {
-    if (!currentChatId) return t('new-chat');
+    if (!currentChatId) return 'SA-AI';
     const chat = chats.find(c => c.id === currentChatId);
     return chat?.title || t('untitled');
   }, [chats, currentChatId, language]);
@@ -200,6 +202,10 @@ function App() {
   const handleSettings = () => {
     setShowSettings(true);
     setToast({ message: t('settings-opened'), type: 'info' });
+  };
+
+  const handleProfileClick = () => {
+    setShowSettings(true);
   };
 
   const handleThemeToggle = () => {
@@ -314,7 +320,7 @@ function App() {
     }
   }
 
-  const headerTitle = !currentChatId ? 'Grok' : currentTitle;
+  const headerTitle = !currentChatId ? 'SA-AI' : currentTitle;
 
   if (showSettings) {
     return (
@@ -406,23 +412,62 @@ function App() {
     <div className={`app ${theme} accent-${accentColor}`}>
       <aside className={`sidebar ${showChatList ? 'sidebar-wide' : ''} ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-nav">
-          <button className={`sidebar-icon ${!currentChatId ? 'active' : ''}`} onClick={handleNewChat} title={t('new-chat')}>
-            <svg viewBox="0 0 24 24" fill="none">
+          <button 
+            className={`sidebar-icon ${!currentChatId ? 'active' : ''}`} 
+            onClick={handleNewChat} 
+            data-tooltip="SA-AI"
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="ai-home-icon">
               <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              {/* AI Neural Network Overlay for Home */}
+              <circle cx="12" cy="12" r="1" fill="currentColor" opacity="0.3"/>
+              <circle cx="8" cy="8" r="0.5" fill="currentColor" opacity="0.3"/>
+              <circle cx="16" cy="8" r="0.5" fill="currentColor" opacity="0.3"/>
+              <circle cx="8" cy="16" r="0.5" fill="currentColor" opacity="0.3"/>
+              <circle cx="16" cy="16" r="0.5" fill="currentColor" opacity="0.3"/>
             </svg>
+            {showChatList && <span className="icon-label">SA-AI</span>}
           </button>
-          <button className="sidebar-icon" onClick={handleClearChat} title={t('clear-conversation')}>
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <button 
+            className="sidebar-icon" 
+            onClick={handleNewChat} 
+            data-tooltip={t('new-chat')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="ai-chat-icon">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              {/* AI Sparkle for New Chat */}
+              <circle cx="12" cy="3" r="1" fill="currentColor" opacity="0.6"/>
+              <path d="M12 3L10 1M12 3L14 1" stroke="currentColor" strokeWidth="1" strokeLinecap="round" opacity="0.6"/>
             </svg>
+            {showChatList && <span className="icon-label">{t('new-chat')}</span>}
           </button>
-          <button className={`sidebar-icon ${showChatList ? 'active' : ''}`} onClick={() => setShowChatList(!showChatList)} title={t('chat-history')}>
-            <svg viewBox="0 0 24 24" fill="none">
+          <button 
+            className={`sidebar-icon ${showChatList ? 'active' : ''}`} 
+            onClick={() => setShowChatList(!showChatList)} 
+            data-tooltip={t('chat-history')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="ai-history-icon">
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              {/* AI Timeline Dots */}
+              <circle cx="5" cy="6" r="1" fill="currentColor" opacity="0.4"/>
+              <circle cx="19" cy="6" r="1" fill="currentColor" opacity="0.4"/>
             </svg>
+            {showChatList && <span className="icon-label">{t('chat-history')}</span>}
+          </button>
+          <button 
+            className="sidebar-icon" 
+            onClick={handleSettings} 
+            data-tooltip={t('settings')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="ai-settings-icon">
+              <path d="m20.91 10.29-3.37-1.86a1.68 1.68 0 0 0-2.04.39l-1.17 2.02a1.68 1.68 0 0 1-2.04.39l-1.17-2.02a1.68 1.68 0 0 0-2.04-.39L6.46 10.29a1.68 1.68 0 0 0-.39 2.04l1.17 2.02a1.68 1.68 0 0 1 .39 2.04l-1.17 2.02a1.68 1.68 0 0 0 .39 2.04l3.37 1.86a1.68 1.68 0 0 0 2.04-.39l1.17-2.02a1.68 1.68 0 0 1 2.04-.39l1.17 2.02a1.68 1.68 0 0 0 2.04.39l3.37-1.86a1.68 1.68 0 0 0-.39-2.04l-1.17-2.02a1.68 1.68 0 0 1-.39-2.04l1.17-2.02a1.68 1.68 0 0 0 .39-2.04zM12 13a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              {/* AI Gear Neural Accent */}
+              <circle cx="12" cy="13" r="0.5" fill="currentColor" opacity="0.5"/>
+            </svg>
+            {showChatList && <span className="icon-label">{t('settings')}</span>}
           </button>
         </div>
         <div className="sidebar-content">
@@ -470,20 +515,50 @@ function App() {
         </div>
         <div className="sidebar-spacer"></div>
         <div className="sidebar-footer">
-          <button className="sidebar-icon" onClick={handleSettings} title={t('settings')}>
-            <svg viewBox="0 0 24 24" fill="none">
-              <path d="m20.91 10.29-3.37-1.86a1.68 1.68 0 0 0-2.04.39l-1.17 2.02a1.68 1.68 0 0 1-2.04.39l-1.17-2.02a1.68 1.68 0 0 0-2.04-.39L6.46 10.29a1.68 1.68 0 0 0-.39 2.04l1.17 2.02a1.68 1.68 0 0 1 .39 2.04l-1.17 2.02a1.68 1.68 0 0 0 .39 2.04l3.37 1.86a1.68 1.68 0 0 0 2.04-.39l1.17-2.02a1.68 1.68 0 0 1 2.04-.39l1.17 2.02a1.68 1.68 0 0 0 2.04.39l3.37-1.86a1.68 1.68 0 0 0-.39-2.04l-1.17-2.02a1.68 1.68 0 0 1-.39-2.04l1.17-2.02a1.68 1.68 0 0 0 .39-2.04zM12 13a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          <button className="sidebar-icon sidebar-profile ai-profile profile-wide-item" data-tooltip={t('profile')} onClick={handleProfileClick}>
+            {showChatList ? (
+              <div className="profile-wide ai-profile-wide">
+                <div className="profile-avatar ai-initial">
+                  <svg viewBox="0 0 24 24" fill="none" className="ai-robot-icon-wide">
+                    <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+                    <circle cx="8" cy="6" r="1" fill="currentColor" opacity="0.8"/>
+                    <circle cx="16" cy="6" r="1" fill="currentColor" opacity="0.8"/>
+                    <path d="M6 14L18 14" stroke="currentColor" strokeWidth="2"/>
+                    <path d="M8 18L10 20M14 20L16 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    {/* Neural accents for wide mode */}
+                    <circle cx="12" cy="12" r="0.5" fill="currentColor" opacity="0.4"/>
+                    <circle cx="9" cy="9" r="0.3" fill="currentColor" opacity="0.4"/>
+                    <circle cx="15" cy="9" r="0.3" fill="currentColor" opacity="0.4"/>
+                  </svg>
+                </div>
+                <div className="profile-info">
+                  <span className="profile-name">{user?.name || 'AI Assistant'}</span>
+                  <span className="profile-subtitle">{t('ai-powered')}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="profile-initial ai-initial">
+                <svg viewBox="0 0 24 24" fill="none" className="ai-robot-icon">
+                  <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+                  <circle cx="8" cy="6" r="1" fill="currentColor" opacity="0.8"/>
+                  <circle cx="16" cy="6" r="1" fill="currentColor" opacity="0.8"/>
+                  <path d="M6 14L18 14" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M8 18L10 20M14 20L16 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+            )}
           </button>
-          <button className="sidebar-icon sidebar-profile" title={t('profile')}>
-            <div className="profile-initial">{user?.name?.charAt(0).toUpperCase() || 'U'}</div>
-          </button>
-          <button className="sidebar-icon" onClick={handleLogout} title={t('logout')}>
+          <button 
+            className="sidebar-icon sidebar-toggle" 
+            onClick={() => setShowChatList(!showChatList)} 
+            data-tooltip={t('toggle-sidebar')}
+          >
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M16 17L21 12L16 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M21 12H9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M3 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
+            {showChatList && <span className="icon-label">{t('toggle-sidebar')}</span>}
           </button>
         </div>
       </aside>
@@ -518,7 +593,7 @@ function App() {
                     <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                     <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  <h1>Grok</h1>
+                  <h1>SA-AI</h1>
                 </div>
               </div>
             ) : (
@@ -591,7 +666,7 @@ function App() {
                 <svg viewBox="0 0 24 24" fill="none">
                   <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2"/>
                 </svg>
-                <span>Grok AI</span>
+                <span>SA-AI</span>
                 <svg viewBox="0 0 24 24" fill="none" className="chevron">
                   <path d="M6 9L12 15L18 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
