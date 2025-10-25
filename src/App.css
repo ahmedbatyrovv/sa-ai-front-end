@@ -1366,6 +1366,7 @@ select:focus {
 }
 
 /* Extra small mobile (e.g., iPhone SE) */
+/* Extra small mobile (e.g., iPhone SE) */
 @media (max-width: 480px) {
   .welcome-screen {
     padding: 16px 12px;
