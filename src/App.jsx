@@ -1,4 +1,4 @@
-// App.js (no changes needed, as profile is already non-interactive)
+// App.js
 import { useState, useRef, useEffect, useMemo } from 'react';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -583,6 +583,35 @@ function App() {
                   </svg>
                   <h1>SA-AI</h1>
                 </div>
+                <div className="suggestions">
+                  {suggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      className="suggestion-chip"
+                      onClick={() => setInput(suggestion.text)}
+                    >
+                      {suggestion.icon === 'search' && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      )}
+                      {suggestion.icon === 'news' && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M3 9H21M9 21V9" stroke="currentColor" strokeWidth="2"/>
+                        </svg>
+                      )}
+                      {suggestion.icon === 'personas' && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/>
+                          <path d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                        </svg>
+                      )}
+                      <span>{suggestion.text}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="messages-list">
@@ -670,37 +699,6 @@ function App() {
               </button>
             </div>
           </div>
-          {messages.length === 0 && (
-            <div className="suggestions">
-              {suggestions.map((suggestion, index) => (
-                <button
-                  key={index}
-                  className="suggestion-chip"
-                  onClick={() => setInput(suggestion.text)}
-                >
-                  {suggestion.icon === 'search' && (
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M21 21L16.65 16.65" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  )}
-                  {suggestion.icon === 'news' && (
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M3 9H21M9 21V9" stroke="currentColor" strokeWidth="2"/>
-                    </svg>
-                  )}
-                  {suggestion.icon === 'personas' && (
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2"/>
-                      <path d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                    </svg>
-                  )}
-                  <span>{suggestion.text}</span>
-                </button>
-              ))}
-            </div>
-          )}
         </footer>
       </div>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

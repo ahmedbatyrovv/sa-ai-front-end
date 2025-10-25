@@ -1,4 +1,4 @@
-/* App.css - Updated with smaller, sidebar-fitting profile */
+/* App.css - No changes needed, suggestions already centered via flex */
 * {
   margin: 0;
   padding: 0;
@@ -831,6 +831,7 @@ select:focus {
   justify-content: center;
   min-height: 100%;
   padding: 40px 20px;
+  gap: 40px; /* Increased gap to move suggestions even lower below logo/"SA-AI" */
 }
 
 .welcome-logo {
@@ -851,6 +852,47 @@ select:focus {
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -1px;
+}
+
+.suggestions {
+  display: flex;
+  justify-content: center; /* Horizontal centering */
+  align-items: center; /* Vertical alignment within row */
+  gap: 16px; /* Slightly increased gap for better spacing between chips */
+  margin-top: 0; /* Removed margin-top; rely on parent gap for positioning */
+  max-width: 900px;
+  width: 100%; /* Full width for responsiveness */
+  flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
+}
+
+.suggestion-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px; /* Slightly larger padding for bigger size */
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-secondary);
+  font-size: 15px; /* Slightly larger font for bigger text */
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap; /* Prevent text wrapping within chip */
+  min-width: 140px; /* Minimum width to ensure consistent sizing */
+}
+
+.suggestion-chip svg {
+  width: 20px; /* Slightly larger icon size */
+  height: 20px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.suggestion-chip:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent-color);
+  transform: translateY(-1px); /* Subtle lift on hover for interactivity */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .messages-list {
@@ -1068,42 +1110,6 @@ select:focus {
   background-color: #E0E0E0;
 }
 
-.suggestions {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 16px;
-  max-width: 900px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.suggestion-chip {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 20px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.suggestion-chip svg {
-  width: 16px;
-  height: 16px;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.suggestion-chip:hover {
-  background-color: var(--bg-tertiary);
-  border-color: var(--accent-color);
-}
-
 /* Desktop padding adjustments */
 @media (min-width: 769px) {
   .chat-container {
@@ -1112,6 +1118,28 @@ select:focus {
 
   .footer {
     padding: 20px 32px 32px;
+  }
+
+  .suggestions {
+    gap: 20px; /* Extra space on large screens */
+  }
+
+  .suggestion-chip {
+    padding: 14px 22px; /* Even larger on desktop for prominence */
+    font-size: 16px;
+    min-width: 160px;
+  }
+
+  .suggestion-chip svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* Tablet adjustments (optional wrap for mid-sizes) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .suggestions {
+    gap: 14px;
   }
 }
 
@@ -1148,6 +1176,11 @@ select:focus {
     padding: 16px 16px 0;
   }
 
+  .welcome-screen {
+    gap: 32px; /* Increased gap on mobile to move suggestions even lower */
+    padding: 20px 16px; /* Adjusted padding for smaller screens */
+  }
+
   .welcome-logo svg {
     width: 64px;
     height: 64px;
@@ -1155,6 +1188,26 @@ select:focus {
 
   .welcome-logo h1 {
     font-size: 40px;
+  }
+
+  .suggestions {
+    flex-direction: column; /* Vertical stack on mobile */
+    gap: 12px; /* Adjusted gap for vertical layout */
+    width: 100%;
+    max-width: none; /* Full width on mobile */
+  }
+
+  .suggestion-chip {
+    justify-content: center; /* Center content in vertical stack */
+    padding: 14px 24px; /* Larger padding for touch targets (min 44px height) */
+    font-size: 16px; /* Larger font on mobile for readability */
+    min-width: auto; /* Allow full-width on small screens */
+    width: 100%; /* Full-width buttons for easy tapping */
+  }
+
+  .suggestion-chip svg {
+    width: 22px;
+    height: 22px;
   }
 
   .message-avatar {
@@ -1177,15 +1230,6 @@ select:focus {
 
   .input-wrapper {
     padding: 10px 12px;
-  }
-
-  .suggestions {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .suggestion-chip {
-    justify-content: center;
   }
 
   .model-selector span {
@@ -1278,5 +1322,31 @@ select:focus {
 
   .profile-name {
     font-size: 12px; /* Smaller name on mobile */
+  }
+}
+
+/* Extra small mobile (e.g., iPhone SE) */
+@media (max-width: 480px) {
+  .welcome-screen {
+    padding: 16px 12px;
+    gap: 28px; /* Slightly increased for very small screens to maintain balance */
+  }
+
+  .welcome-logo h1 {
+    font-size: 36px;
+  }
+
+  .suggestions {
+    gap: 10px;
+  }
+
+  .suggestion-chip {
+    padding: 16px 20px; /* Even larger touch targets */
+    font-size: 15px;
+  }
+
+  .suggestion-chip svg {
+    width: 20px;
+    height: 20px;
   }
 }
