@@ -108,13 +108,18 @@
   height: 20px;
 }
 
-.social-btn:hover {
+.social-btn:hover:not(:disabled) {
   background-color: #252525;
   border-color: #505050;
 }
 
-.social-btn:active {
+.social-btn:active:not(:disabled) {
   transform: scale(0.98);
+}
+
+.social-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .divider {

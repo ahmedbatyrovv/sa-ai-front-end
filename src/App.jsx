@@ -21,8 +21,8 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [theme, setTheme] = useState('dark');
-  const [accentColor, setAccentColor] = useState('mostly'); // Изменено на 'mostly' по умолчанию
+  const [theme, setTheme] = useState('mostly'); // Изменено на 'mostly' по умолчанию
+  const [accentColor, setAccentColor] = useState('mostly');
   const [language, setLanguage] = useState('en');
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -44,7 +44,7 @@ function App() {
         'dark': 'Dark',
         'light': 'Light',
         'accent': 'Accent Color',
-        'mostly': 'Mostly', // Новые labels
+        'mostly': 'Mostly',
         'vitally': 'Vitally',
         'principally': 'Principally',
         'language': 'Language',
@@ -106,6 +106,12 @@ function App() {
   }, [chats, currentChatId, language]);
 
   useEffect(() => {
+    // Загрузка пользователя из localStorage при инициализации (фикс для рефреша)
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+
     const savedChats = localStorage.getItem('chats');
     if (savedChats) {
       const parsed = JSON.parse(savedChats);
@@ -182,6 +188,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('token'); // Также удаляем токен
     setToast({ message: t('logged-out'), type: 'info' });
     setUser(null);
     setMessages([]);
@@ -381,21 +388,21 @@ function App() {
                 <button 
                   className={`accent-btn ${accentColor === 'mostly' ? 'active' : ''}`} 
                   onClick={() => handleAccentChange('mostly')}
-                  style={{ '--accent-btn-color': '#2d72e2' }} // mostly
+                  style={{ '--accent-btn-color': '#2d72e2' }}
                 >
                   <div className="accent-color-swatch"></div>
                 </button>
                 <button 
                   className={`accent-btn ${accentColor === 'vitally' ? 'active' : ''}`} 
                   onClick={() => handleAccentChange('vitally')}
-                  style={{ '--accent-btn-color': '#8A4FFF' }} // vitally
+                  style={{ '--accent-btn-color': '#8A4FFF' }}
                 >
                   <div className="accent-color-swatch"></div>
                 </button>
                 <button 
                   className={`accent-btn ${accentColor === 'principally' ? 'active' : ''}`} 
                   onClick={() => handleAccentChange('principally')}
-                  style={{ '--accent-btn-color': '#ffb464' }} // principally (новая)
+                  style={{ '--accent-btn-color': '#ffb464' }}
                 >
                   <div className="accent-color-swatch"></div>
                 </button>
