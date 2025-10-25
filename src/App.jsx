@@ -22,7 +22,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [theme, setTheme] = useState('dark');
-  const [accentColor, setAccentColor] = useState('teal');
+  const [accentColor, setAccentColor] = useState('mostly'); // Изменено на 'mostly' по умолчанию
   const [language, setLanguage] = useState('en');
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -44,8 +44,9 @@ function App() {
         'dark': 'Dark',
         'light': 'Light',
         'accent': 'Accent Color',
-        'teal': 'Teal',
-        'blue': 'Blue',
+        'mostly': 'Mostly', // Новые labels
+        'vitally': 'Vitally',
+        'principally': 'Principally',
         'language': 'Language',
         'english': 'English',
         'russian': 'Russian',
@@ -76,8 +77,9 @@ function App() {
         'dark': 'Тёмная',
         'light': 'Светлая',
         'accent': 'Цвет акцента',
-        'teal': 'Бирюзовый',
-        'blue': 'Синий',
+        'mostly': 'Основной',
+        'vitally': 'Жизненно важный',
+        'principally': 'Принципиальный',
         'language': 'Язык',
         'english': 'Английский',
         'russian': 'Русский',
@@ -377,16 +379,23 @@ function App() {
               <h2>{t('accent')}</h2>
               <div className="accent-selector">
                 <button 
-                  className={`accent-btn ${accentColor === 'teal' ? 'active' : ''}`} 
-                  onClick={() => handleAccentChange('teal')}
-                  style={{ '--accent-btn-color': '#3A8F7A' }}
+                  className={`accent-btn ${accentColor === 'mostly' ? 'active' : ''}`} 
+                  onClick={() => handleAccentChange('mostly')}
+                  style={{ '--accent-btn-color': '#2d72e2' }} // mostly
                 >
                   <div className="accent-color-swatch"></div>
                 </button>
                 <button 
-                  className={`accent-btn ${accentColor === 'blue' ? 'active' : ''}`} 
-                  onClick={() => handleAccentChange('blue')}
-                  style={{ '--accent-btn-color': '#1E40AF' }}
+                  className={`accent-btn ${accentColor === 'vitally' ? 'active' : ''}`} 
+                  onClick={() => handleAccentChange('vitally')}
+                  style={{ '--accent-btn-color': '#8A4FFF' }} // vitally
+                >
+                  <div className="accent-color-swatch"></div>
+                </button>
+                <button 
+                  className={`accent-btn ${accentColor === 'principally' ? 'active' : ''}`} 
+                  onClick={() => handleAccentChange('principally')}
+                  style={{ '--accent-btn-color': '#ffb464' }} // principally (новая)
                 >
                   <div className="accent-color-swatch"></div>
                 </button>

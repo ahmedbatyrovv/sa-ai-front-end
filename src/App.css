@@ -1,4 +1,4 @@
-/* App.css - No changes needed, suggestions already centered via flex */
+/* App.css */
 * {
   margin: 0;
   padding: 0;
@@ -13,8 +13,9 @@ body.light {
   --text-secondary: #636366;
   --text-muted: #A1A1AA;
   --border-color: #E5E5E7;
-  --accent-teal: #3A8F7A;
-  --accent-blue: #1E40AF;
+  --accent-mostly: #2d72e2; /* Новый: mostly */
+  --accent-vitally: #8A4FFF; /* Новый: vitally */
+  --accent-principally: #ffb464; /* Новый: principally */
 }
 
 body.dark {
@@ -25,16 +26,21 @@ body.dark {
   --text-secondary: #A1A1AA;
   --text-muted: #808080;
   --border-color: #404040;
-  --accent-teal: #3A8F7A;
-  --accent-blue: #1E40AF;
+  --accent-mostly: #2d72e2; /* Новый: mostly */
+  --accent-vitally: #8A4FFF; /* Новый: vitally */
+  --accent-principally: #ffb464; /* Новый: principally */
 }
 
-body.accent-teal {
-  --accent-color: var(--accent-teal);
+body.accent-mostly {
+  --accent-color: var(--accent-mostly);
 }
 
-body.accent-blue {
-  --accent-color: var(--accent-blue);
+body.accent-vitally {
+  --accent-color: var(--accent-vitally);
+}
+
+body.accent-principally {
+  --accent-color: var(--accent-principally);
 }
 
 .app {
@@ -44,6 +50,40 @@ body.accent-blue {
   color: var(--text-primary);
   overflow: hidden;
   position: relative;
+}
+
+/* Scrollbar стили: зависит от accent-color, показывается на hover */
+.app::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.app::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.app::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.app::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+
+.app::-webkit-scrollbar-thumb:active {
+  background: color-mix(in srgb, var(--accent-color) 80%, black);
+}
+
+/* Для Firefox (базово, hover не идеален) */
+.app {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-color) transparent;
+}
+
+.app:hover {
+  scrollbar-color: var(--accent-color) transparent;
 }
 
 .settings-screen {
