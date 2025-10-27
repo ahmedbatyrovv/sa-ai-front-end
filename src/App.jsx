@@ -1,4 +1,4 @@
-// src/App.js (updated with react-i18next integration)
+// src/App.js (debugged for suggestions visibility)
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from 'react-i18next'; // New import for translations
 import Login from "./pages/Login";
@@ -23,7 +23,7 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [theme, setTheme] = useState("mostly"); // Изменено на 'mostly' по умолчанию
+  const [theme, setTheme] = useState("light"); // Fixed default to "light" (was "mostly" – that's accent only!)
   const [accentColor, setAccentColor] = useState("mostly");
   const [language, setLanguage] = useState("en");
   const messagesEndRef = useRef(null);
@@ -56,7 +56,13 @@ function App() {
         const lastChat = parsed[parsed.length - 1];
         setCurrentChatId(lastChat.id);
         setMessages(lastChat.messages || []);
+      } else {
+        // Force new chat if no chats
+        handleNewChat();
       }
+    } else {
+      // No saved chats: start fresh
+      handleNewChat();
     }
   }, []);
 
@@ -143,6 +149,7 @@ function App() {
     setInput("");
     setStreamingMessage("");
     setShowChatList(false);
+    handleClearChat(); // Extra clear for safety
   };
 
   const handleClearChat = () => {
@@ -232,6 +239,14 @@ function App() {
   }, [input]);
 
   const suggestions = t("suggestions"); // Now uses t from hook
+  console.log("DEBUG: Suggestions loaded:", suggestions); // Remove after fix
+
+  // Fallback if not array (e.g., i18n glitch)
+  const safeSuggestions = Array.isArray(suggestions) ? suggestions : [
+    { text: "What can you help me with?", icon: "search" },
+    { text: "Explain quantum computing", icon: "news" },
+    { text: "Help me write code", icon: "personas" },
+  ];
 
   const filteredChats = useMemo(() => {
     if (!searchQuery.trim()) return chats;
@@ -819,67 +834,74 @@ function App() {
                   <h1>SA-AI</h1>
                 </div>
                 <div className="suggestions">
-                  {suggestions.map((suggestion, index) => (
-                    <button
-                      key={index}
-                      className="suggestion-chip"
-                      onClick={() => setInput(suggestion.text)}
-                    >
-                      {suggestion.icon === "search" && (
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <circle
-                            cx="11"
-                            cy="11"
-                            r="8"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <path
-                            d="M21 21L16.65 16.65"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      )}
-                      {suggestion.icon === "news" && (
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <rect
-                            x="3"
-                            y="3"
-                            width="18"
-                            height="18"
-                            rx="2"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <path
-                            d="M3 9H21M9 21V9"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                        </svg>
-                      )}
-                      {suggestion.icon === "personas" && (
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <circle
-                            cx="12"
-                            cy="8"
-                            r="4"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <path
-                            d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      )}
-                      <span>{suggestion.text}</span>
-                    </button>
-                  ))}
+                  {(() => {
+                    const elements = [];
+                    safeSuggestions.forEach((suggestion, index) => {
+                      elements.push(
+                        <button
+                          key={index}
+                          className="suggestion-chip"
+                          onClick={() => setInput(suggestion.text)}
+                        >
+                          {suggestion.icon === "search" && (
+                            <svg viewBox="0 0 24 24" fill="none">
+                              <circle
+                                cx="11"
+                                cy="11"
+                                r="8"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M21 21L16.65 16.65"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          )}
+                          {suggestion.icon === "news" && (
+                            <svg viewBox="0 0 24 24" fill="none">
+                              <rect
+                                x="3"
+                                y="3"
+                                width="18"
+                                height="18"
+                                rx="2"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M3 9H21M9 21V9"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                            </svg>
+                          )}
+                          {suggestion.icon === "personas" && (
+                            <svg viewBox="0 0 24 24" fill="none">
+                              <circle
+                                cx="12"
+                                cy="8"
+                                r="4"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          )}
+                          <span>{suggestion.text}</span>
+                        </button>
+                      );
+                    });
+                    console.log("DEBUG: Rendered", elements.length, "suggestion chips"); // Remove after fix
+                    return elements;
+                  })()}
                 </div>
               </div>
             ) : (

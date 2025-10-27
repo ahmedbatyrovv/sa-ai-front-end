@@ -1,4 +1,4 @@
-/* App.css */
+/* App.css (cleaned up, removed duplicates) */
 * {
   margin: 0;
   padding: 0;
@@ -1182,8 +1182,13 @@ select:focus {
   height: 18px;
 }
 
-.voice-btn:hover {
+.voice-btn:hover:not(:disabled) {
   background-color: #e0e0e0;
+}
+
+.voice-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Desktop padding adjustments */
