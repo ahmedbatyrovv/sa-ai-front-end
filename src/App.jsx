@@ -1,20 +1,19 @@
-// src/App.js (debugged for suggestions visibility)
+// src/App.js (optimized for engine.js integration)
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useTranslation } from 'react-i18next'; // New import for translations
+import { useTranslation } from 'react-i18next';
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Toast from "./components/Toast";
-import { generateStreamingResponse } from "./services/aiService";
+import engine from "./engine"; // Direct import from engine.js (place in src/)
 import "./App.css";
 
 function App() {
-  const { t, i18n } = useTranslation(); // Use react-i18next hook
+  const { t, i18n } = useTranslation();
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("login");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState("");
   const [toast, setToast] = useState(null);
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
@@ -23,13 +22,13 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [theme, setTheme] = useState("light"); // Fixed default to "light" (was "mostly" – that's accent only!)
+  const [theme, setTheme] = useState("light");
   const [accentColor, setAccentColor] = useState("mostly");
   const [language, setLanguage] = useState("en");
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Language change handler now uses i18n
+  // Language change handler
   const handleLanguageChange = (newLang) => {
     i18n.changeLanguage(newLang);
     setLanguage(newLang);
@@ -39,10 +38,9 @@ function App() {
     if (!currentChatId) return "SA-AI";
     const chat = chats.find((c) => c.id === currentChatId);
     return chat?.title || t("untitled");
-  }, [chats, currentChatId, t]); // Use t from hook
+  }, [chats, currentChatId, t]);
 
   useEffect(() => {
-    // Загрузка пользователя из localStorage при инициализации (фикс для рефреша)
     const savedUser = localStorage.getItem("currentUser");
     if (savedUser) {
       setUser(JSON.parse(savedUser));
@@ -57,11 +55,9 @@ function App() {
         setCurrentChatId(lastChat.id);
         setMessages(lastChat.messages || []);
       } else {
-        // Force new chat if no chats
         handleNewChat();
       }
     } else {
-      // No saved chats: start fresh
       handleNewChat();
     }
   }, []);
@@ -95,7 +91,7 @@ function App() {
     const savedLang = localStorage.getItem("language");
     if (savedLang) {
       setLanguage(savedLang);
-      i18n.changeLanguage(savedLang); // Sync with i18n
+      i18n.changeLanguage(savedLang);
     }
   }, [i18n]);
 
@@ -123,7 +119,7 @@ function App() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingMessage]);
+  }, [messages]);
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -135,7 +131,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
-    localStorage.removeItem("token"); // Также удаляем токен
+    localStorage.removeItem("token");
     setToast({ message: t("logged-out"), type: "info" });
     setUser(null);
     setMessages([]);
@@ -144,18 +140,18 @@ function App() {
   };
 
   const handleNewChat = () => {
+    console.log("New chat initiated");
     setCurrentChatId(null);
     setMessages([]);
     setInput("");
-    setStreamingMessage("");
     setShowChatList(false);
-    handleClearChat(); // Extra clear for safety
+    handleClearChat();
   };
 
   const handleClearChat = () => {
+    console.log("Chat cleared");
     setMessages([]);
     setInput("");
-    setStreamingMessage("");
     setToast({ message: t("conversation-cleared"), type: "info" });
   };
 
@@ -172,8 +168,11 @@ function App() {
     setAccentColor(newAccent);
   };
 
+  // Optimized handleSend using engine.js
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
+
+    console.log("Processing new message. Prompt:", input);
 
     if (!currentChatId) {
       const newId = Date.now();
@@ -184,6 +183,7 @@ function App() {
         localStorage.setItem("chats", JSON.stringify(newList));
         return newList;
       });
+      console.log("Created new chat with ID:", newId);
     }
 
     const userMessage = {
@@ -196,26 +196,47 @@ function App() {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsTyping(true);
-    setStreamingMessage("");
 
     try {
-      await generateStreamingResponse(input, (chunk) => {
-        setStreamingMessage(chunk);
-      });
+      console.log("Calling engine...");
+      const result = await engine(input);
+      console.log("Engine result:", result);
+
+      let aiText;
+      if (result.model === "dual") {
+        // Handle dual responses (science/math)
+        aiText = `${result.responses.openrouter}\n\n---\n\n${result.responses.gemini}`;
+        console.log("Using dual mode response");
+      } else if (result.model === "error") {
+        aiText = result.response;
+        setToast({ message: t("ai-error"), type: "error" });
+        console.log("Engine error mode:", aiText);
+      } else {
+        aiText = result.response;
+        console.log(`Using ${result.model} response`);
+      }
 
       const aiMessage = {
         id: Date.now() + 1,
-        text: streamingMessage,
+        text: aiText,
         sender: "ai",
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, aiMessage]);
-      setStreamingMessage("");
     } catch (error) {
-      console.error("Error generating response:", error);
+      console.error("Engine error:", error);
+      const errorMessage = {
+        id: Date.now() + 1,
+        text: t("ai-error"),
+        sender: "ai",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      setToast({ message: t("ai-error"), type: "error" });
     } finally {
       setIsTyping(false);
+      console.log("Message processing complete");
     }
   };
 
@@ -238,8 +259,7 @@ function App() {
     adjustTextareaHeight();
   }, [input]);
 
-  const suggestions = t("suggestions"); // Now uses t from hook
-  console.log("DEBUG: Suggestions loaded:", suggestions); // Remove after fix
+  const suggestions = t("suggestions");
 
   // Fallback if not array (e.g., i18n glitch)
   const safeSuggestions = Array.isArray(suggestions) ? suggestions : [
@@ -475,8 +495,7 @@ function App() {
               >
                 <option value="en">{t("english")}</option>
                 <option value="ru">{t("russian")}</option>
-                <option value="tm">{t("turkmen")}</option>{" "}
-                {/* Новый: туркменский */}
+                <option value="tm">{t("turkmen")}</option>
               </select>
             </div>
             <button className="logout-btn" onClick={handleLogout}>
@@ -805,7 +824,7 @@ function App() {
             </header>
           )}
           <div className="chat-container">
-            {messages.length === 0 && !streamingMessage ? (
+            {messages.length === 0 ? (
               <div className="welcome-screen">
                 <div className="welcome-logo">
                   <svg viewBox="0 0 24 24" fill="none">
@@ -834,74 +853,67 @@ function App() {
                   <h1>SA-AI</h1>
                 </div>
                 <div className="suggestions">
-                  {(() => {
-                    const elements = [];
-                    safeSuggestions.forEach((suggestion, index) => {
-                      elements.push(
-                        <button
-                          key={index}
-                          className="suggestion-chip"
-                          onClick={() => setInput(suggestion.text)}
-                        >
-                          {suggestion.icon === "search" && (
-                            <svg viewBox="0 0 24 24" fill="none">
-                              <circle
-                                cx="11"
-                                cy="11"
-                                r="8"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                              <path
-                                d="M21 21L16.65 16.65"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                          )}
-                          {suggestion.icon === "news" && (
-                            <svg viewBox="0 0 24 24" fill="none">
-                              <rect
-                                x="3"
-                                y="3"
-                                width="18"
-                                height="18"
-                                rx="2"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                              <path
-                                d="M3 9H21M9 21V9"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                            </svg>
-                          )}
-                          {suggestion.icon === "personas" && (
-                            <svg viewBox="0 0 24 24" fill="none">
-                              <circle
-                                cx="12"
-                                cy="8"
-                                r="4"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                              <path
-                                d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                          )}
-                          <span>{suggestion.text}</span>
-                        </button>
-                      );
-                    });
-                    console.log("DEBUG: Rendered", elements.length, "suggestion chips"); // Remove after fix
-                    return elements;
-                  })()}
+                  {safeSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      className="suggestion-chip"
+                      onClick={() => setInput(suggestion.text)}
+                    >
+                      {suggestion.icon === "search" && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle
+                            cx="11"
+                            cy="11"
+                            r="8"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M21 21L16.65 16.65"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      )}
+                      {suggestion.icon === "news" && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <rect
+                            x="3"
+                            y="3"
+                            width="18"
+                            height="18"
+                            rx="2"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M3 9H21M9 21V9"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                        </svg>
+                      )}
+                      {suggestion.icon === "personas" && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle
+                            cx="12"
+                            cy="8"
+                            r="4"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      )}
+                      <span>{suggestion.text}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : (
@@ -944,7 +956,7 @@ function App() {
                     </div>
                   </div>
                 ))}
-                {(isTyping || streamingMessage) && (
+                {isTyping && (
                   <div className="message ai">
                     <div className="message-avatar">
                       <svg viewBox="0 0 24 24" fill="none">
@@ -972,18 +984,11 @@ function App() {
                       </svg>
                     </div>
                     <div className="message-content">
-                      {streamingMessage ? (
-                        <p className="message-text">
-                          {streamingMessage}
-                          <span className="cursor">|</span>
-                        </p>
-                      ) : (
-                        <div className="typing-indicator">
-                          <span></span>
-                          <span></span>
-                          <span></span>
-                        </div>
-                      )}
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
                     </div>
                   </div>
                 )}
