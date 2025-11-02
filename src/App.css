@@ -1,4 +1,4 @@
-/* App.css (cleaned up, removed duplicates) */
+/* App.css (default, cleaned up) */
 * {
   margin: 0;
   padding: 0;
@@ -13,9 +13,9 @@ body.light {
   --text-secondary: #636366;
   --text-muted: #a1a1aa;
   --border-color: #e5e5e7;
-  --accent-mostly: #2d72e2; /* Новый: mostly */
-  --accent-vitally: #8a4fff; /* Новый: vitally */
-  --accent-principally: #ffb464; /* Новый: principally */
+  --accent-mostly: #2d72e2;
+  --accent-vitally: #8a4fff;
+  --accent-principally: #ffb464;
 }
 
 body.dark {
@@ -26,9 +26,9 @@ body.dark {
   --text-secondary: #a1a1aa;
   --text-muted: #808080;
   --border-color: #404040;
-  --accent-mostly: #2d72e2; /* Новый: mostly */
-  --accent-vitally: #8a4fff; /* Новый: vitally */
-  --accent-principally: #ffb464; /* Новый: principally */
+  --accent-mostly: #2d72e2;
+  --accent-vitally: #8a4fff;
+  --accent-principally: #ffb464;
 }
 
 body.accent-mostly {
@@ -52,19 +52,17 @@ body.accent-principally {
   position: relative;
 }
 
-/* Скрытие скроллбара глобально: невидимый, но скролл работает */
 .app,
 .app * {
-  -ms-overflow-style: none;  /* IE/Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .app::-webkit-scrollbar,
 .app *::-webkit-scrollbar {
-  display: none;  /* WebKit: Chrome/Safari */
+  display: none;
 }
 
-/* Дополнительно для ключевых контейнеров с overflow */
 .main-content,
 .chat-list,
 .settings-content {
@@ -311,7 +309,7 @@ body.accent-principally {
 }
 
 .accent-color-swatch {
-  display: none; /* Hidden, used for accessibility */
+  display: none;
 }
 
 select {
@@ -583,7 +581,6 @@ select:focus {
   color: var(--text-primary);
 }
 
-/* Updated Profile Styles - Smaller, sidebar-fitting, AI-themed: Compact sizes, subtle neural glow */
 .sidebar-profile {
   background: linear-gradient(
     135deg,
@@ -633,7 +630,6 @@ select:focus {
   transform: translateY(-1px);
 }
 
-/* AI Neural Glow for Profile - Subtle AI theme */
 .user-avatar {
   width: 100%;
   height: 100%;
@@ -647,19 +643,19 @@ select:focus {
   );
   border-radius: 50%;
   color: #ffffff;
-  font-size: 11px; /* Smaller font */
+  font-size: 11px;
   font-weight: 600;
   position: relative;
   z-index: 1;
   border: 1.5px solid rgba(255, 255, 255, 0.2);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 0 8px rgba(58, 143, 122, 0.4); /* AI glow */
+    0 0 8px rgba(58, 143, 122, 0.4);
   transition: box-shadow 0.3s ease;
 }
 
 .user-avatar:hover {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 0 12px rgba(58, 143, 122, 0.6); /* Enhanced glow on hover */
+    0 0 12px rgba(58, 143, 122, 0.6);
 }
 
 .profile-wide-item {
@@ -672,10 +668,10 @@ select:focus {
 .profile-wide {
   display: flex;
   align-items: center;
-  gap: 8px; /* Smaller gap */
+  gap: 8px;
   width: 100%;
   justify-content: flex-start;
-  padding: 8px 12px; /* Smaller padding */
+  padding: 8px 12px;
   background: transparent;
   border-radius: 8px;
   transition: all 0.2s ease;
@@ -712,7 +708,7 @@ select:focus {
 
 .profile-wide .profile-avatar {
   flex-shrink: 0;
-  width: 32px; /* Smaller avatar */
+  width: 32px;
   height: 32px;
   border-radius: 50%;
   display: flex;
@@ -726,7 +722,7 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 42px; /* Smaller container */
+  width: 42px;
   height: 42px;
   position: relative;
 }
@@ -734,12 +730,12 @@ select:focus {
 .profile-info {
   display: flex;
   flex-direction: column;
-  gap: 1px; /* Smaller gap */
+  gap: 1px;
   flex: 1;
 }
 
 .profile-name {
-  font-size: 13px; /* Smaller font */
+  font-size: 13px;
   font-weight: 600;
   color: #ffffff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -747,7 +743,7 @@ select:focus {
 }
 
 .profile-subtitle {
-  font-size: 10px; /* Smaller subtitle */
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.8);
   font-weight: 400;
   text-transform: uppercase;
@@ -763,7 +759,6 @@ select:focus {
   background-color: rgba(255, 255, 255, 0.1);
 }
 
-/* AI Icon Enhancements */
 .ai-home-icon,
 .ai-chat-icon,
 .ai-history-icon,
@@ -905,7 +900,7 @@ select:focus {
   justify-content: center;
   min-height: 100%;
   padding: 40px 20px;
-  gap: 40px; /* Increased gap to move suggestions even lower below logo/"SA-AI" */
+  gap: 40px;
 }
 
 .welcome-logo {
@@ -930,33 +925,33 @@ select:focus {
 
 .suggestions {
   display: flex;
-  justify-content: center; /* Horizontal centering */
-  align-items: center; /* Vertical alignment within row */
-  gap: 16px; /* Slightly increased gap for better spacing between chips */
-  margin-top: 0; /* Removed margin-top; rely on parent gap for positioning */
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 0;
   max-width: 900px;
-  width: 100%; /* Full width for responsiveness */
-  flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 .suggestion-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px; /* Slightly larger padding for bigger size */
+  padding: 12px 20px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 20px;
   color: var(--text-secondary);
-  font-size: 15px; /* Slightly larger font for bigger text */
+  font-size: 15px;
   cursor: pointer;
   transition: all 0.2s ease;
-  white-space: nowrap; /* Prevent text wrapping within chip */
-  min-width: 140px; /* Minimum width to ensure consistent sizing */
+  white-space: nowrap;
+  min-width: 140px;
 }
 
 .suggestion-chip svg {
-  width: 20px; /* Slightly larger icon size */
+  width: 20px;
   height: 20px;
   color: var(--text-muted);
   flex-shrink: 0;
@@ -965,7 +960,7 @@ select:focus {
 .suggestion-chip:hover {
   background-color: var(--bg-tertiary);
   border-color: var(--accent-color);
-  transform: translateY(-1px); /* Subtle lift on hover for interactivity */
+  transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
@@ -1191,7 +1186,6 @@ select:focus {
   cursor: not-allowed;
 }
 
-/* Desktop padding adjustments */
 @media (min-width: 769px) {
   .chat-container {
     padding: 32px 32px 0;
@@ -1202,11 +1196,11 @@ select:focus {
   }
 
   .suggestions {
-    gap: 20px; /* Extra space on large screens */
+    gap: 20px;
   }
 
   .suggestion-chip {
-    padding: 14px 22px; /* Even larger on desktop for prominence */
+    padding: 14px 22px;
     font-size: 16px;
     min-width: 160px;
   }
@@ -1217,14 +1211,12 @@ select:focus {
   }
 }
 
-/* Tablet adjustments (optional wrap for mid-sizes) */
 @media (min-width: 769px) and (max-width: 1024px) {
   .suggestions {
     gap: 14px;
   }
 }
 
-/* Mobile padding adjustments */
 @media (max-width: 768px) {
   .sidebar {
     position: fixed;
@@ -1258,8 +1250,8 @@ select:focus {
   }
 
   .welcome-screen {
-    gap: 32px; /* Increased gap on mobile to move suggestions even lower */
-    padding: 20px 16px; /* Adjusted padding for smaller screens */
+    gap: 32px;
+    padding: 20px 16px;
   }
 
   .welcome-logo svg {
@@ -1272,18 +1264,18 @@ select:focus {
   }
 
   .suggestions {
-    flex-direction: column; /* Vertical stack on mobile */
-    gap: 12px; /* Adjusted gap for vertical layout */
+    flex-direction: column;
+    gap: 12px;
     width: 100%;
-    max-width: none; /* Full width on mobile */
+    max-width: none;
   }
 
   .suggestion-chip {
-    justify-content: center; /* Center content in vertical stack */
-    padding: 14px 24px; /* Larger padding for touch targets (min 44px height) */
-    font-size: 16px; /* Larger font on mobile for readability */
-    min-width: auto; /* Allow full-width on small screens */
-    width: 100%; /* Full-width buttons for easy tapping */
+    justify-content: center;
+    padding: 14px 24px;
+    font-size: 16px;
+    min-width: auto;
+    width: 100%;
   }
 
   .suggestion-chip svg {
@@ -1330,7 +1322,7 @@ select:focus {
   }
 
   .search-input {
-    font-size: 16px; /* Prevent zoom on iOS */
+    font-size: 16px;
   }
 
   .settings-content {
@@ -1389,29 +1381,28 @@ select:focus {
   }
 
   .profile-wide {
-    padding: 8px 12px; /* Smaller on mobile too */
-    gap: 6px; /* Even smaller gap on mobile */
+    padding: 8px 12px;
+    gap: 6px;
   }
 
   .profile-wide .profile-avatar {
-    width: 28px; /* Smaller on mobile */
+    width: 28px;
     height: 28px;
   }
 
   .profile-subtitle {
-    font-size: 9px; /* Smaller subtitle on mobile */
+    font-size: 9px;
   }
 
   .profile-name {
-    font-size: 12px; /* Smaller name on mobile */
+    font-size: 12px;
   }
 }
 
-/* Extra small mobile (e.g., iPhone SE) */
 @media (max-width: 480px) {
   .welcome-screen {
     padding: 16px 12px;
-    gap: 28px; /* Slightly increased for very small screens to maintain balance */
+    gap: 28px;
   }
 
   .welcome-logo h1 {
@@ -1423,7 +1414,7 @@ select:focus {
   }
 
   .suggestion-chip {
-    padding: 16px 20px; /* Even larger touch targets */
+    padding: 16px 20px;
     font-size: 15px;
   }
 

@@ -1,7 +1,7 @@
-// src/i18n.js (no changes)
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { translations } from './translations';
+import { useLanguageStore } from './store/languageStore';
 
 const resources = {
   en: { translation: translations.en },
@@ -9,18 +9,16 @@ const resources = {
   tm: { translation: translations.tm },
 };
 
+const initialLanguage = useLanguageStore.getState().language;
+
 i18n
   .use(initReactI18next)
   .init({
     resources,
-    lng: 'en', // Default language
+    lng: initialLanguage,
     fallbackLng: 'en',
     interpolation: {
-      escapeValue: false, // React already escapes
-    },
-    detection: {
-      order: ['localStorage', 'navigator'],
-      caches: ['localStorage'],
+      escapeValue: false,
     },
   });
 

@@ -1,19 +1,28 @@
-// src/App.js (optimized for engine.js integration)
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from 'react-i18next';
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Toast from "./components/Toast";
-import engine from "./engine"; // Direct import from engine.js (place in src/)
+import { generateStreamingResponse } from "./services/aiService";
+import { useLanguageStore } from "./store/languageStore";
+import { useThemeStore } from "./store/themeStore";
 import "./App.css";
 
 function App() {
   const { t, i18n } = useTranslation();
+  const language = useLanguageStore((state) => state.language);
+  const setLanguage = useLanguageStore((state) => state.setLanguage);
+  const theme = useThemeStore((state) => state.theme);
+  const setTheme = useThemeStore((state) => state.setTheme);
+  const accentColor = useThemeStore((state) => state.accentColor);
+  const setAccentColor = useThemeStore((state) => state.setAccentColor);
+
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("login");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState("");
   const [toast, setToast] = useState(null);
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
@@ -22,13 +31,9 @@ function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [theme, setTheme] = useState("light");
-  const [accentColor, setAccentColor] = useState("mostly");
-  const [language, setLanguage] = useState("en");
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
-  // Language change handler
   const handleLanguageChange = (newLang) => {
     i18n.changeLanguage(newLang);
     setLanguage(newLang);
@@ -84,23 +89,29 @@ function App() {
   }, [messages, currentChatId]);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme");
-    if (savedTheme) setTheme(savedTheme);
-    const savedAccent = localStorage.getItem("accentColor");
-    if (savedAccent) setAccentColor(savedAccent);
-    const savedLang = localStorage.getItem("language");
-    if (savedLang) {
-      setLanguage(savedLang);
-      i18n.changeLanguage(savedLang);
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleThemeChange = (e) => {
+      setTheme(e.matches ? 'dark' : 'light');
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleThemeChange);
+    } else {
+      mediaQuery.addListener(handleThemeChange);
     }
-  }, [i18n]);
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleThemeChange);
+      } else {
+        mediaQuery.removeListener(handleThemeChange);
+      }
+    };
+  }, [setTheme]);
 
   useEffect(() => {
     document.body.className = `${theme} accent-${accentColor}`;
-    localStorage.setItem("theme", theme);
-    localStorage.setItem("accentColor", accentColor);
-    localStorage.setItem("language", language);
-  }, [theme, accentColor, language]);
+  }, [theme, accentColor]);
 
   useEffect(() => {
     const check = () => {
@@ -110,8 +121,24 @@ function App() {
     };
     check();
     window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
+    return () => {
+      window.removeEventListener("resize", check);
+      window.removeEventListener("orientationchange", check);
+    };
   }, []);
+
+  useEffect(() => {
+    if (isMobile && sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobile, sidebarOpen]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -119,7 +146,7 @@ function App() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, streamingMessage]);
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -140,18 +167,18 @@ function App() {
   };
 
   const handleNewChat = () => {
-    console.log("New chat initiated");
     setCurrentChatId(null);
     setMessages([]);
     setInput("");
+    setStreamingMessage("");
     setShowChatList(false);
-    handleClearChat();
+    setToast({ message: t("new-chat-started"), type: "info" });
   };
 
   const handleClearChat = () => {
-    console.log("Chat cleared");
     setMessages([]);
     setInput("");
+    setStreamingMessage("");
     setToast({ message: t("conversation-cleared"), type: "info" });
   };
 
@@ -168,11 +195,8 @@ function App() {
     setAccentColor(newAccent);
   };
 
-  // Optimized handleSend using engine.js
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
-
-    console.log("Processing new message. Prompt:", input);
 
     if (!currentChatId) {
       const newId = Date.now();
@@ -183,7 +207,6 @@ function App() {
         localStorage.setItem("chats", JSON.stringify(newList));
         return newList;
       });
-      console.log("Created new chat with ID:", newId);
     }
 
     const userMessage = {
@@ -196,47 +219,26 @@ function App() {
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsTyping(true);
+    setStreamingMessage("");
 
     try {
-      console.log("Calling engine...");
-      const result = await engine(input);
-      console.log("Engine result:", result);
-
-      let aiText;
-      if (result.model === "dual") {
-        // Handle dual responses (science/math)
-        aiText = `${result.responses.openrouter}\n\n---\n\n${result.responses.gemini}`;
-        console.log("Using dual mode response");
-      } else if (result.model === "error") {
-        aiText = result.response;
-        setToast({ message: t("ai-error"), type: "error" });
-        console.log("Engine error mode:", aiText);
-      } else {
-        aiText = result.response;
-        console.log(`Using ${result.model} response`);
-      }
+      await generateStreamingResponse(input, (chunk) => {
+        setStreamingMessage(chunk);
+      });
 
       const aiMessage = {
         id: Date.now() + 1,
-        text: aiText,
+        text: streamingMessage,
         sender: "ai",
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, aiMessage]);
+      setStreamingMessage("");
     } catch (error) {
-      console.error("Engine error:", error);
-      const errorMessage = {
-        id: Date.now() + 1,
-        text: t("ai-error"),
-        sender: "ai",
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-      setToast({ message: t("ai-error"), type: "error" });
+      console.error("Error generating response:", error);
     } finally {
       setIsTyping(false);
-      console.log("Message processing complete");
     }
   };
 
@@ -261,7 +263,6 @@ function App() {
 
   const suggestions = t("suggestions");
 
-  // Fallback if not array (e.g., i18n glitch)
   const safeSuggestions = Array.isArray(suggestions) ? suggestions : [
     { text: "What can you help me with?", icon: "search" },
     { text: "Explain quantum computing", icon: "news" },
@@ -551,7 +552,6 @@ function App() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {/* AI Neural Network Overlay for Home */}
               <circle cx="12" cy="12" r="1" fill="currentColor" opacity="0.3" />
               <circle cx="8" cy="8" r="0.5" fill="currentColor" opacity="0.3" />
               <circle
@@ -591,7 +591,6 @@ function App() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {/* AI Sparkle for New Chat */}
               <circle cx="12" cy="3" r="1" fill="currentColor" opacity="0.6" />
               <path
                 d="M12 3L10 1M12 3L14 1"
@@ -625,7 +624,6 @@ function App() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {/* AI Timeline Dots */}
               <circle cx="5" cy="6" r="1" fill="currentColor" opacity="0.4" />
               <circle cx="19" cy="6" r="1" fill="currentColor" opacity="0.4" />
             </svg>
@@ -646,7 +644,6 @@ function App() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {/* AI Gear Neural Accent */}
               <circle
                 cx="12"
                 cy="13"
@@ -824,7 +821,7 @@ function App() {
             </header>
           )}
           <div className="chat-container">
-            {messages.length === 0 ? (
+            {messages.length === 0 && !streamingMessage ? (
               <div className="welcome-screen">
                 <div className="welcome-logo">
                   <svg viewBox="0 0 24 24" fill="none">
@@ -853,67 +850,73 @@ function App() {
                   <h1>SA-AI</h1>
                 </div>
                 <div className="suggestions">
-                  {safeSuggestions.map((suggestion, index) => (
-                    <button
-                      key={index}
-                      className="suggestion-chip"
-                      onClick={() => setInput(suggestion.text)}
-                    >
-                      {suggestion.icon === "search" && (
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <circle
-                            cx="11"
-                            cy="11"
-                            r="8"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <path
-                            d="M21 21L16.65 16.65"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      )}
-                      {suggestion.icon === "news" && (
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <rect
-                            x="3"
-                            y="3"
-                            width="18"
-                            height="18"
-                            rx="2"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <path
-                            d="M3 9H21M9 21V9"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                        </svg>
-                      )}
-                      {suggestion.icon === "personas" && (
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <circle
-                            cx="12"
-                            cy="8"
-                            r="4"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          />
-                          <path
-                            d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      )}
-                      <span>{suggestion.text}</span>
-                    </button>
-                  ))}
+                  {(() => {
+                    const elements = [];
+                    safeSuggestions.forEach((suggestion, index) => {
+                      elements.push(
+                        <button
+                          key={index}
+                          className="suggestion-chip"
+                          onClick={() => setInput(suggestion.text)}
+                        >
+                          {suggestion.icon === "search" && (
+                            <svg viewBox="0 0 24 24" fill="none">
+                              <circle
+                                cx="11"
+                                cy="11"
+                                r="8"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M21 21L16.65 16.65"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          )}
+                          {suggestion.icon === "news" && (
+                            <svg viewBox="0 0 24 24" fill="none">
+                              <rect
+                                x="3"
+                                y="3"
+                                width="18"
+                                height="18"
+                                rx="2"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M3 9H21M9 21V9"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                            </svg>
+                          )}
+                          {suggestion.icon === "personas" && (
+                            <svg viewBox="0 0 24 24" fill="none">
+                              <circle
+                                cx="12"
+                                cy="8"
+                                r="4"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                          )}
+                          <span>{suggestion.text}</span>
+                        </button>
+                      );
+                    });
+                    return elements;
+                  })()}
                 </div>
               </div>
             ) : (
@@ -956,7 +959,7 @@ function App() {
                     </div>
                   </div>
                 ))}
-                {isTyping && (
+                {(isTyping || streamingMessage) && (
                   <div className="message ai">
                     <div className="message-avatar">
                       <svg viewBox="0 0 24 24" fill="none">
@@ -984,11 +987,18 @@ function App() {
                       </svg>
                     </div>
                     <div className="message-content">
-                      <div className="typing-indicator">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
+                      {streamingMessage ? (
+                        <p className="message-text">
+                          {streamingMessage}
+                          <span className="cursor">|</span>
+                        </p>
+                      ) : (
+                        <div className="typing-indicator">
+                          <span></span>
+                          <span></span>
+                          <span></span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
