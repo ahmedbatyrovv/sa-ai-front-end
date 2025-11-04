@@ -1,3 +1,4 @@
+// src/App.js (Full fixed: API_BASE to '/api' for proxy; enhanced error handling for 401; logs for debug; auto-logout on auth fail)
 import { useState, useRef, useEffect, useMemo } from "react";
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from 'react-i18next';
@@ -8,7 +9,7 @@ import { useLanguageStore } from "./store/languageStore";
 import { useThemeStore } from "./store/themeStore";
 import "./App.css";
 
-const API_BASE = "http://api.merdannotfound.ru"; // Fixed: Use local backend URL
+const API_BASE = "/api"; // Fixed: Use proxy path to avoid CORS
 
 function AppContent() {
   const queryClient = useQueryClient();
@@ -32,25 +33,46 @@ function AppContent() {
   const [showSettings, setShowSettings] = useState(false);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
-
   const token = localStorage.getItem("token");
-  const getHeaders = () => ({
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  });
+
+  console.log('Token check:', !!token ? 'OK' : 'MISSING - Check login'); // Debug: Token status
+
+  const getHeaders = () => {
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+    console.log('Headers for fetch:', headers); // Debug: Log headers
+    return headers;
+  };
 
   const { data: allChats = [] } = useQuery({
     queryKey: ["chats"],
     queryFn: () =>
-      fetch(`${API_BASE}/api/chat`, { headers: getHeaders() }).then((r) => r.json()),
+      fetch(`${API_BASE}/chat`, { headers: getHeaders() }).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }),
     enabled: !!token,
+    onError: (err) => {
+      console.error('Chats query error:', err); // Debug
+      if (err.message.includes('401')) handleLogout(); // Auto-logout on 401
+      setToast({ message: t("error-loading-chats") || 'Error loading chats', type: "error" });
+    },
   });
 
   const { data: currentChat } = useQuery({
     queryKey: ["chat", currentChatId],
     queryFn: () =>
-      fetch(`${API_BASE}/api/chat/${currentChatId}`, { headers: getHeaders() }).then((r) => r.json()),
+      fetch(`${API_BASE}/chat/${currentChatId}`, { headers: getHeaders() }).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }),
     enabled: !!currentChatId && !!token,
+    onError: (err) => {
+      console.error('Current chat query error:', err); // Debug
+      if (err.message.includes('401')) handleLogout();
+    },
   });
 
   const displayMessages = useMemo(() => {
@@ -64,36 +86,58 @@ function AppContent() {
 
   const createMutation = useMutation({
     mutationFn: (body) =>
-      fetch(`${API_BASE}/api/chat`, {
+      fetch(`${API_BASE}/chat`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(body),
-      }).then((r) => r.json()),
+      }).then((r) => {
+        console.log('Create chat response status:', r.status); // Debug
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }),
     onSuccess: (data) => {
+      console.log('New chat created:', data); // Debug
       queryClient.invalidateQueries({ queryKey: ["chats"] });
       setCurrentChatId(data._id);
+      setToast({ message: t("new-chat-started") || 'New chat started', type: "info" });
+    },
+    onError: (err) => {
+      console.error('Create mutation error:', err); // Debug
+      if (err.message.includes('401')) handleLogout();
+      setToast({ message: `Create chat failed: ${err.message}`, type: "error" });
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: (body) =>
-      fetch(`${API_BASE}/api/chat/${currentChatId}`, {
+      fetch(`${API_BASE}/chat/${currentChatId}`, {
         method: "PUT",
         headers: getHeaders(),
         body: JSON.stringify(body),
-      }).then((r) => r.json()),
+      }).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["chat", currentChatId] });
+    },
+    onError: (err) => {
+      console.error('Update mutation error:', err);
+      if (err.message.includes('401')) handleLogout();
     },
   });
 
   const sendMutation = useMutation({
     mutationFn: (content) =>
-      fetch(`${API_BASE}/api/chat/${currentChatId}/message`, {
+      fetch(`${API_BASE}/chat/${currentChatId}/message`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({ role: "user", content }),
-      }).then((r) => r.json()),
+      }).then((r) => {
+        console.log('Send message response status:', r.status); // Debug
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }),
     onMutate: async (content) => {
       await queryClient.cancelQueries({ queryKey: ["chat", currentChatId] });
       const previousChat = queryClient.getQueryData(["chat", currentChatId]);
@@ -107,14 +151,18 @@ function AppContent() {
       return { previousChat };
     },
     onError: (err, content, context) => {
+      console.error('Send mutation error:', err); // Debug
       if (context?.previousChat) {
         queryClient.setQueryData(["chat", currentChatId], context.previousChat);
       }
+      if (err.message.includes('401')) handleLogout();
       setIsTyping(false);
+      setToast({ message: `Send failed: ${err.message}`, type: "error" });
     },
     onSuccess: () => {
       setInput("");
       setIsTyping(false);
+      setToast({ message: t("message-sent") || 'Message sent', type: "success" });
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["chat", currentChatId] });
@@ -135,13 +183,13 @@ function AppContent() {
         (displayMessages[0].text.length > 50 ? "..." : "")
       );
     }
-    return t("untitled");
+    return t("untitled") || 'Untitled';
   }, [currentChat, displayMessages, currentChatId, t]);
 
-  // Fixed: Safe parsing for localStorage to avoid "undefined" JSON error
   useEffect(() => {
     const savedUserStr = localStorage.getItem("currentUser");
     const savedToken = localStorage.getItem("token");
+    console.log('Loading from localStorage:', { user: savedUserStr, token: !!savedToken }); // Debug
     if (savedUserStr && savedUserStr !== "undefined") {
       try {
         const parsedUser = JSON.parse(savedUserStr);
@@ -161,8 +209,10 @@ function AppContent() {
 
   useEffect(() => {
     if (user && allChats.length > 0 && !currentChatId) {
+      console.log('Auto-selecting last chat:', allChats[allChats.length - 1]?._id); // Debug
       setCurrentChatId(allChats[allChats.length - 1]._id);
     } else if (user && allChats.length === 0 && !currentChatId) {
+      console.log('Creating first chat'); // Debug
       createMutation.mutate({ title: "", messages: [] });
     }
   }, [user, allChats, currentChatId, createMutation]);
@@ -238,34 +288,21 @@ function AppContent() {
     scrollToBottom();
   }, [displayMessages, isTyping]);
 
-  // Fixed: Ensure userData has token and user before saving
-  const handleLogin = (userData) => {
-    if (userData?.token && userData?.user) {
-      localStorage.setItem("token", userData.token);
-      localStorage.setItem("currentUser", JSON.stringify(userData.user));
-      setUser(userData.user);
-    } else {
-      console.error("Invalid login data:", userData);
-      setToast({ message: t("login-failed"), type: "error" });
-    }
+  const handleLogin = (user) => {
+    console.log('Login success, setting user:', user); // Debug
+    setUser(user);
   };
 
-  // Fixed: Ensure userData has token and user before saving
-  const handleSignup = (userData) => {
-    if (userData?.token && userData?.user) {
-      localStorage.setItem("token", userData.token);
-      localStorage.setItem("currentUser", JSON.stringify(userData.user));
-      setUser(userData.user);
-    } else {
-      console.error("Invalid signup data:", userData);
-      setToast({ message: t("signup-failed"), type: "error" });
-    }
+  const handleSignup = (user) => {
+    console.log('Signup success, setting user:', user); // Debug
+    setUser(user);
   };
 
   const handleLogout = () => {
+    console.log('Logging out...'); // Debug
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
-    setToast({ message: t("logged-out"), type: "info" });
+    setToast({ message: t("logged-out") || 'Logged out', type: "info" });
     setUser(null);
     setCurrentChatId(null);
     setInput("");
@@ -274,16 +311,17 @@ function AppContent() {
   };
 
   const handleNewChat = () => {
-    createMutation.mutate(
-      { title: "", messages: [] },
-      {
-        onSuccess: () => {
-          setInput("");
-          setShowChatList(false);
-          setToast({ message: t("new-chat-started"), type: "info" });
-        },
-      }
-    );
+    console.log('New chat clicked, token:', !!token); // Debug
+    if (!token) {
+      setToast({ message: 'Please log in first', type: "error" });
+      return;
+    }
+    createMutation.mutate({ title: "", messages: [] }, {
+      onSuccess: () => {
+        setInput("");
+        setShowChatList(false);
+      },
+    });
   };
 
   const handleClearChat = () => {
@@ -291,7 +329,7 @@ function AppContent() {
       updateMutation.mutate({ messages: [] }, {
         onSuccess: () => {
           setInput("");
-          setToast({ message: t("conversation-cleared"), type: "info" });
+          setToast({ message: t("conversation-cleared") || 'Conversation cleared', type: "info" });
         },
       });
     }
@@ -299,7 +337,6 @@ function AppContent() {
 
   const handleSettings = () => {
     setShowSettings(true);
-    setToast({ message: t("settings-opened"), type: "info" });
   };
 
   const handleThemeToggle = () => {
@@ -311,7 +348,11 @@ function AppContent() {
   };
 
   const handleSend = () => {
-    if (!input.trim() || isTyping || !token) return;
+    console.log('Send clicked, input:', input.trim(), 'token:', !!token, 'currentChatId:', currentChatId); // Debug
+    if (!input.trim() || isTyping || !token) {
+      if (!token) setToast({ message: 'Please log in', type: "error" });
+      return;
+    }
     if (!currentChatId) {
       createMutation.mutate(
         { title: "", messages: [] },
@@ -408,7 +449,7 @@ function AppContent() {
                 />
               </svg>
             </button>
-            <h1>{t("settings")}</h1>
+            <h1>{t("settings") || 'Settings'}</h1>
             <div className="ai-badge">
               <svg viewBox="0 0 24 24" fill="none">
                 <path
@@ -437,7 +478,7 @@ function AppContent() {
           </header>
           <main className="settings-content">
             <div className="settings-section">
-              <h2>{t("theme")}</h2>
+              <h2>{t("theme") || 'Theme'}</h2>
               <div className="theme-toggle-slider">
                 <button
                   className={`slider-btn ${theme === "light" ? "active" : ""}`}
@@ -541,7 +582,7 @@ function AppContent() {
               </div>
             </div>
             <div className="settings-section">
-              <h2>{t("accent")}</h2>
+              <h2>{t("accent") || 'Accent'}</h2>
               <div className="accent-selector">
                 <button
                   className={`accent-btn ${
@@ -573,18 +614,18 @@ function AppContent() {
               </div>
             </div>
             <div className="settings-section">
-              <h2>{t("language")}</h2>
+              <h2>{t("language") || 'Language'}</h2>
               <select
                 value={language}
                 onChange={(e) => handleLanguageChange(e.target.value)}
               >
-                <option value="en">{t("english")}</option>
-                <option value="ru">{t("russian")}</option>
-                <option value="tm">{t("turkmen")}</option>
+                <option value="en">{t("english") || 'English'}</option>
+                <option value="ru">{t("russian") || 'Russian'}</option>
+                <option value="tm">{t("turkmen") || 'Turkmen'}</option>
               </select>
             </div>
             <button className="logout-btn" onClick={handleLogout}>
-              {t("logout")}
+              {t("logout") || 'Logout'}
             </button>
           </main>
         </div>
@@ -665,7 +706,7 @@ function AppContent() {
           <button
             className="sidebar-icon"
             onClick={handleNewChat}
-            data-tooltip={t("new-chat")}
+            data-tooltip={t("new-chat") || 'New Chat'}
           >
             <svg viewBox="0 0 24 24" fill="none" className="ai-chat-icon">
               <path
@@ -685,13 +726,13 @@ function AppContent() {
               />
             </svg>
             {showChatList && (
-              <span className="icon-label">{t("new-chat")}</span>
+              <span className="icon-label">{t("new-chat") || 'New Chat'}</span>
             )}
           </button>
           <button
             className={`sidebar-icon ${showChatList ? "active" : ""}`}
             onClick={() => setShowChatList(!showChatList)}
-            data-tooltip={t("chat-history")}
+            data-tooltip={t("chat-history") || 'Chat History'}
           >
             <svg viewBox="0 0 24 24" fill="none" className="ai-history-icon">
               <path
@@ -712,13 +753,13 @@ function AppContent() {
               <circle cx="19" cy="6" r="1" fill="currentColor" opacity="0.4" />
             </svg>
             {showChatList && (
-              <span className="icon-label">{t("chat-history")}</span>
+              <span className="icon-label">{t("chat-history") || 'Chat History'}</span>
             )}
           </button>
           <button
             className="sidebar-icon"
             onClick={handleSettings}
-            data-tooltip={t("settings")}
+            data-tooltip={t("settings") || 'Settings'}
           >
             <svg viewBox="0 0 24 24" fill="none" className="ai-settings-icon">
               <path
@@ -737,7 +778,7 @@ function AppContent() {
               />
             </svg>
             {showChatList && (
-              <span className="icon-label">{t("settings")}</span>
+              <span className="icon-label">{t("settings") || 'Settings'}</span>
             )}
           </button>
         </div>
@@ -762,7 +803,7 @@ function AppContent() {
                 </svg>
                 <input
                   type="text"
-                  placeholder={t("search-chats")}
+                  placeholder={t("search-chats") || 'Search chats'}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="search-input"
@@ -770,7 +811,7 @@ function AppContent() {
               </div>
               {filteredChats.length === 0 ? (
                 <div className="no-chats">
-                  {searchQuery ? t("no-chats-found") : t("no-chats")}
+                  {searchQuery ? t("no-chats-found") || 'No chats found' : t("no-chats") || 'No chats'}
                 </div>
               ) : (
                 filteredChats
@@ -788,12 +829,11 @@ function AppContent() {
                       }}
                     >
                       <div className="chat-title">
-                        {chat.title || t("untitled")}
+                        {chat.title || t("untitled") || 'Untitled'}
                       </div>
                       {chat.messages.length > 0 && (
                         <div className="chat-preview">
-                          {chat.messages[chat.messages.length - 1].content.substring(0, 50)}
-                          ...
+                          {chat.messages[chat.messages.length - 1].content.substring(0, 50)}...
                         </div>
                       )}
                     </button>
@@ -808,7 +848,7 @@ function AppContent() {
             className={`sidebar-icon sidebar-profile ${
               showChatList ? "profile-wide-item" : ""
             }`}
-            data-tooltip={user?.name || t("profile")}
+            data-tooltip={user?.name || t("profile") || 'Profile'}
           >
             {!showChatList ? (
               <div className="profile-initial">
@@ -821,9 +861,9 @@ function AppContent() {
                 </div>
                 <div className="profile-info">
                   <span className="profile-name">
-                    {user?.name || t("profile")}
+                    {user?.name || t("profile") || 'Profile'}
                   </span>
-                  <span className="profile-subtitle">{t("ai-powered")}</span>
+                  <span className="profile-subtitle">{t("ai-powered") || 'AI-powered'}</span>
                 </div>
               </div>
             )}
@@ -831,7 +871,7 @@ function AppContent() {
           <button
             className="sidebar-icon sidebar-toggle"
             onClick={() => setShowChatList(!showChatList)}
-            data-tooltip={t("toggle-sidebar")}
+            data-tooltip={t("toggle-sidebar") || 'Toggle Sidebar'}
           >
             <svg viewBox="0 0 24 24" fill="none">
               <path
@@ -854,7 +894,7 @@ function AppContent() {
               />
             </svg>
             {showChatList && (
-              <span className="icon-label">{t("toggle-sidebar")}</span>
+              <span className="icon-label">{t("toggle-sidebar") || 'Toggle Sidebar'}</span>
             )}
           </button>
         </div>
@@ -895,7 +935,7 @@ function AppContent() {
                 <h2>{headerTitle}</h2>
                 {currentChatId && (
                   <button className="new-chat-mobile" onClick={handleNewChat}>
-                    {t("new-chat")}
+                    {t("new-chat") || 'New Chat'}
                   </button>
                 )}
               </div>
@@ -931,73 +971,67 @@ function AppContent() {
                   <h1>SA-AI</h1>
                 </div>
                 <div className="suggestions">
-                  {(() => {
-                    const elements = [];
-                    safeSuggestions.forEach((suggestion, index) => {
-                      elements.push(
-                        <button
-                          key={index}
-                          className="suggestion-chip"
-                          onClick={() => setInput(suggestion.text)}
-                        >
-                          {suggestion.icon === "search" && (
-                            <svg viewBox="0 0 24 24" fill="none">
-                              <circle
-                                cx="11"
-                                cy="11"
-                                r="8"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                              <path
-                                d="M21 21L16.65 16.65"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                          )}
-                          {suggestion.icon === "news" && (
-                            <svg viewBox="0 0 24 24" fill="none">
-                              <rect
-                                x="3"
-                                y="3"
-                                width="18"
-                                height="18"
-                                rx="2"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                              <path
-                                d="M3 9H21M9 21V9"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                            </svg>
-                          )}
-                          {suggestion.icon === "personas" && (
-                            <svg viewBox="0 0 24 24" fill="none">
-                              <circle
-                                cx="12"
-                                cy="8"
-                                r="4"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                              <path
-                                d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                          )}
-                          <span>{suggestion.text}</span>
-                        </button>
-                      );
-                    });
-                    return elements;
-                  })()}
+                  {safeSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      className="suggestion-chip"
+                      onClick={() => setInput(suggestion.text)}
+                    >
+                      {suggestion.icon === "search" && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle
+                            cx="11"
+                            cy="11"
+                            r="8"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M21 21L16.65 16.65"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      )}
+                      {suggestion.icon === "news" && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <rect
+                            x="3"
+                            y="3"
+                            width="18"
+                            height="18"
+                            rx="2"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M3 9H21M9 21V9"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                        </svg>
+                      )}
+                      {suggestion.icon === "personas" && (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle
+                            cx="12"
+                            cy="8"
+                            r="4"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          />
+                          <path
+                            d="M5 20C5 16.134 8.134 13 12 13C15.866 13 19 16.134 19 20"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      )}
+                      <span>{suggestion.text}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             ) : (
@@ -1099,7 +1133,7 @@ function AppContent() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={t("what-do-you-want")}
+              placeholder={t("what-do-you-want") || 'What do you want to chat about?'}
               className="chat-input"
               rows="1"
               disabled={isTyping}
@@ -1156,7 +1190,6 @@ function AppContent() {
 
 function App() {
   const queryClient = useMemo(() => new QueryClient(), []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />
