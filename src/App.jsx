@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from 'react-i18next';
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Toast from "./components/Toast";
-import { generateStreamingResponse } from "./services/aiService";
 import { useLanguageStore } from "./store/languageStore";
 import { useThemeStore } from "./store/themeStore";
 import "./App.css";
 
-function App() {
+const API_BASE = "http://api.merdannotfound.ru"; // Fixed: Use local backend URL
+
+function AppContent() {
+  const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
   const language = useLanguageStore((state) => state.language);
   const setLanguage = useLanguageStore((state) => state.setLanguage);
@@ -16,15 +19,11 @@ function App() {
   const setTheme = useThemeStore((state) => state.setTheme);
   const accentColor = useThemeStore((state) => state.accentColor);
   const setAccentColor = useThemeStore((state) => state.setAccentColor);
-
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("login");
-  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [streamingMessage, setStreamingMessage] = useState("");
   const [toast, setToast] = useState(null);
-  const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [showChatList, setShowChatList] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,6 +33,94 @@ function App() {
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
 
+  const token = localStorage.getItem("token");
+  const getHeaders = () => ({
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  });
+
+  const { data: allChats = [] } = useQuery({
+    queryKey: ["chats"],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/chat`, { headers: getHeaders() }).then((r) => r.json()),
+    enabled: !!token,
+  });
+
+  const { data: currentChat } = useQuery({
+    queryKey: ["chat", currentChatId],
+    queryFn: () =>
+      fetch(`${API_BASE}/api/chat/${currentChatId}`, { headers: getHeaders() }).then((r) => r.json()),
+    enabled: !!currentChatId && !!token,
+  });
+
+  const displayMessages = useMemo(() => {
+    return currentChat?.messages?.map((msg, index) => ({
+      id: index,
+      text: msg.content,
+      sender: msg.role === "user" ? "user" : "ai",
+      timestamp: new Date(),
+    })) || [];
+  }, [currentChat]);
+
+  const createMutation = useMutation({
+    mutationFn: (body) =>
+      fetch(`${API_BASE}/api/chat`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+      }).then((r) => r.json()),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
+      setCurrentChatId(data._id);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (body) =>
+      fetch(`${API_BASE}/api/chat/${currentChatId}`, {
+        method: "PUT",
+        headers: getHeaders(),
+        body: JSON.stringify(body),
+      }).then((r) => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chat", currentChatId] });
+    },
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: (content) =>
+      fetch(`${API_BASE}/api/chat/${currentChatId}/message`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ role: "user", content }),
+      }).then((r) => r.json()),
+    onMutate: async (content) => {
+      await queryClient.cancelQueries({ queryKey: ["chat", currentChatId] });
+      const previousChat = queryClient.getQueryData(["chat", currentChatId]);
+      if (previousChat) {
+        queryClient.setQueryData(["chat", currentChatId], (old) => ({
+          ...old,
+          messages: [...old.messages, { role: "user", content }],
+        }));
+      }
+      setIsTyping(true);
+      return { previousChat };
+    },
+    onError: (err, content, context) => {
+      if (context?.previousChat) {
+        queryClient.setQueryData(["chat", currentChatId], context.previousChat);
+      }
+      setIsTyping(false);
+    },
+    onSuccess: () => {
+      setInput("");
+      setIsTyping(false);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["chat", currentChatId] });
+    },
+  });
+
   const handleLanguageChange = (newLang) => {
     i18n.changeLanguage(newLang);
     setLanguage(newLang);
@@ -41,68 +128,72 @@ function App() {
 
   const currentTitle = useMemo(() => {
     if (!currentChatId) return "SA-AI";
-    const chat = chats.find((c) => c.id === currentChatId);
-    return chat?.title || t("untitled");
-  }, [chats, currentChatId, t]);
-
-  useEffect(() => {
-    const savedUser = localStorage.getItem("currentUser");
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    if (currentChat?.title && currentChat.title !== "New Chat") return currentChat.title;
+    if (displayMessages.length > 0) {
+      return (
+        displayMessages[0].text.substring(0, 50) +
+        (displayMessages[0].text.length > 50 ? "..." : "")
+      );
     }
+    return t("untitled");
+  }, [currentChat, displayMessages, currentChatId, t]);
 
-    const savedChats = localStorage.getItem("chats");
-    if (savedChats) {
-      const parsed = JSON.parse(savedChats);
-      setChats(parsed);
-      if (parsed.length > 0) {
-        const lastChat = parsed[parsed.length - 1];
-        setCurrentChatId(lastChat.id);
-        setMessages(lastChat.messages || []);
-      } else {
-        handleNewChat();
+  // Fixed: Safe parsing for localStorage to avoid "undefined" JSON error
+  useEffect(() => {
+    const savedUserStr = localStorage.getItem("currentUser");
+    const savedToken = localStorage.getItem("token");
+    if (savedUserStr && savedUserStr !== "undefined") {
+      try {
+        const parsedUser = JSON.parse(savedUserStr);
+        if (parsedUser && savedToken) {
+          setUser(parsedUser);
+        } else {
+          console.warn("Invalid saved user or missing token, clearing storage");
+          localStorage.removeItem("currentUser");
+          localStorage.removeItem("token");
+        }
+      } catch (e) {
+        console.error("Failed to parse saved user:", e);
+        localStorage.removeItem("currentUser");
       }
-    } else {
-      handleNewChat();
     }
   }, []);
 
   useEffect(() => {
-    if (currentChatId && messages.length > 0) {
-      setChats((prevChats) => {
-        const updated = prevChats.map((c) => {
-          if (c.id === currentChatId) {
-            let newTitle = c.title;
-            if (newTitle === "" && messages.length >= 2) {
-              newTitle =
-                messages[0].text.substring(0, 50) +
-                (messages[0].text.length > 50 ? "..." : "");
-            }
-            return { ...c, title: newTitle, messages: messages };
-          }
-          return c;
-        });
-        localStorage.setItem("chats", JSON.stringify(updated));
-        return updated;
-      });
+    if (user && allChats.length > 0 && !currentChatId) {
+      setCurrentChatId(allChats[allChats.length - 1]._id);
+    } else if (user && allChats.length === 0 && !currentChatId) {
+      createMutation.mutate({ title: "", messages: [] });
     }
-  }, [messages, currentChatId]);
+  }, [user, allChats, currentChatId, createMutation]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleThemeChange = (e) => {
-      setTheme(e.matches ? 'dark' : 'light');
-    };
+    if (
+      currentChat &&
+      currentChat.title === "New Chat" &&
+      displayMessages.length >= 2 &&
+      displayMessages[0].sender === "user"
+    ) {
+      const newTitle =
+        displayMessages[0].text.substring(0, 50) +
+        (displayMessages[0].text.length > 50 ? "..." : "");
+      updateMutation.mutate({ title: newTitle });
+    }
+  }, [displayMessages, currentChat, updateMutation]);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleThemeChange = (e) => {
+      setTheme(e.matches ? "dark" : "light");
+    };
     if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleThemeChange);
+      mediaQuery.addEventListener("change", handleThemeChange);
     } else {
       mediaQuery.addListener(handleThemeChange);
     }
-
     return () => {
       if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener('change', handleThemeChange);
+        mediaQuery.removeEventListener("change", handleThemeChange);
       } else {
         mediaQuery.removeListener(handleThemeChange);
       }
@@ -130,13 +221,12 @@ function App() {
 
   useEffect(() => {
     if (isMobile && sidebarOpen) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     }
-
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     };
   }, [isMobile, sidebarOpen]);
 
@@ -146,14 +236,30 @@ function App() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, streamingMessage]);
+  }, [displayMessages, isTyping]);
 
+  // Fixed: Ensure userData has token and user before saving
   const handleLogin = (userData) => {
-    setUser(userData);
+    if (userData?.token && userData?.user) {
+      localStorage.setItem("token", userData.token);
+      localStorage.setItem("currentUser", JSON.stringify(userData.user));
+      setUser(userData.user);
+    } else {
+      console.error("Invalid login data:", userData);
+      setToast({ message: t("login-failed"), type: "error" });
+    }
   };
 
+  // Fixed: Ensure userData has token and user before saving
   const handleSignup = (userData) => {
-    setUser(userData);
+    if (userData?.token && userData?.user) {
+      localStorage.setItem("token", userData.token);
+      localStorage.setItem("currentUser", JSON.stringify(userData.user));
+      setUser(userData.user);
+    } else {
+      console.error("Invalid signup data:", userData);
+      setToast({ message: t("signup-failed"), type: "error" });
+    }
   };
 
   const handleLogout = () => {
@@ -161,25 +267,34 @@ function App() {
     localStorage.removeItem("token");
     setToast({ message: t("logged-out"), type: "info" });
     setUser(null);
-    setMessages([]);
+    setCurrentChatId(null);
     setInput("");
     setShowSettings(false);
+    queryClient.clear();
   };
 
   const handleNewChat = () => {
-    setCurrentChatId(null);
-    setMessages([]);
-    setInput("");
-    setStreamingMessage("");
-    setShowChatList(false);
-    setToast({ message: t("new-chat-started"), type: "info" });
+    createMutation.mutate(
+      { title: "", messages: [] },
+      {
+        onSuccess: () => {
+          setInput("");
+          setShowChatList(false);
+          setToast({ message: t("new-chat-started"), type: "info" });
+        },
+      }
+    );
   };
 
   const handleClearChat = () => {
-    setMessages([]);
-    setInput("");
-    setStreamingMessage("");
-    setToast({ message: t("conversation-cleared"), type: "info" });
+    if (currentChatId) {
+      updateMutation.mutate({ messages: [] }, {
+        onSuccess: () => {
+          setInput("");
+          setToast({ message: t("conversation-cleared"), type: "info" });
+        },
+      });
+    }
   };
 
   const handleSettings = () => {
@@ -195,50 +310,20 @@ function App() {
     setAccentColor(newAccent);
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
-
+  const handleSend = () => {
+    if (!input.trim() || isTyping || !token) return;
     if (!currentChatId) {
-      const newId = Date.now();
-      const newChat = { id: newId, title: "", messages: [] };
-      setCurrentChatId(newId);
-      setChats((prev) => {
-        const newList = [newChat, ...prev];
-        localStorage.setItem("chats", JSON.stringify(newList));
-        return newList;
-      });
-    }
-
-    const userMessage = {
-      id: Date.now(),
-      text: input,
-      sender: "user",
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsTyping(true);
-    setStreamingMessage("");
-
-    try {
-      await generateStreamingResponse(input, (chunk) => {
-        setStreamingMessage(chunk);
-      });
-
-      const aiMessage = {
-        id: Date.now() + 1,
-        text: streamingMessage,
-        sender: "ai",
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
-      setStreamingMessage("");
-    } catch (error) {
-      console.error("Error generating response:", error);
-    } finally {
-      setIsTyping(false);
+      createMutation.mutate(
+        { title: "", messages: [] },
+        {
+          onSuccess: (newChat) => {
+            setCurrentChatId(newChat._id);
+            sendMutation.mutate(input);
+          },
+        }
+      );
+    } else {
+      sendMutation.mutate(input);
     }
   };
 
@@ -262,27 +347,26 @@ function App() {
   }, [input]);
 
   const suggestions = t("suggestions");
-
-  const safeSuggestions = Array.isArray(suggestions) ? suggestions : [
-    { text: "What can you help me with?", icon: "search" },
-    { text: "Explain quantum computing", icon: "news" },
-    { text: "Help me write code", icon: "personas" },
-  ];
+  const safeSuggestions = Array.isArray(suggestions)
+    ? suggestions
+    : [
+        { text: "What can you help me with?", icon: "search" },
+        { text: "Explain quantum computing", icon: "news" },
+        { text: "Help me write code", icon: "personas" },
+      ];
 
   const filteredChats = useMemo(() => {
-    if (!searchQuery.trim()) return chats;
-    return chats.filter((chat) => {
-      const titleMatch = chat.title
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
+    if (!searchQuery.trim()) return allChats;
+    return allChats.filter((chat) => {
+      const titleMatch = chat.title.toLowerCase().includes(searchQuery.toLowerCase());
       const previewMatch =
         chat.messages.length > 0 &&
-        chat.messages[chat.messages.length - 1].text
+        chat.messages[chat.messages.length - 1].content
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
       return titleMatch || previewMatch;
     });
-  }, [chats, searchQuery]);
+  }, [allChats, searchQuery]);
 
   if (!user) {
     if (authMode === "login") {
@@ -694,13 +778,12 @@ function App() {
                   .reverse()
                   .map((chat) => (
                     <button
-                      key={chat.id}
+                      key={chat._id}
                       className={`chat-item ${
-                        chat.id === currentChatId ? "active" : ""
+                        chat._id === currentChatId ? "active" : ""
                       }`}
                       onClick={() => {
-                        setMessages(chat.messages || []);
-                        setCurrentChatId(chat.id);
+                        setCurrentChatId(chat._id);
                         if (isMobile) setShowChatList(false);
                       }}
                     >
@@ -709,9 +792,7 @@ function App() {
                       </div>
                       {chat.messages.length > 0 && (
                         <div className="chat-preview">
-                          {chat.messages[
-                            chat.messages.length - 1
-                          ].text.substring(0, 50)}
+                          {chat.messages[chat.messages.length - 1].content.substring(0, 50)}
                           ...
                         </div>
                       )}
@@ -821,7 +902,7 @@ function App() {
             </header>
           )}
           <div className="chat-container">
-            {messages.length === 0 && !streamingMessage ? (
+            {displayMessages.length === 0 ? (
               <div className="welcome-screen">
                 <div className="welcome-logo">
                   <svg viewBox="0 0 24 24" fill="none">
@@ -921,8 +1002,8 @@ function App() {
               </div>
             ) : (
               <div className="messages-list">
-                {messages.map((message) => (
-                  <div key={message.id} className={`message ${message.sender}`}>
+                {displayMessages.map((message, index) => (
+                  <div key={index} className={`message ${message.sender}`}>
                     <div className="message-avatar">
                       {message.sender === "ai" ? (
                         <svg viewBox="0 0 24 24" fill="none">
@@ -959,7 +1040,7 @@ function App() {
                     </div>
                   </div>
                 ))}
-                {(isTyping || streamingMessage) && (
+                {isTyping && (
                   <div className="message ai">
                     <div className="message-avatar">
                       <svg viewBox="0 0 24 24" fill="none">
@@ -987,18 +1068,11 @@ function App() {
                       </svg>
                     </div>
                     <div className="message-content">
-                      {streamingMessage ? (
-                        <p className="message-text">
-                          {streamingMessage}
-                          <span className="cursor">|</span>
-                        </p>
-                      ) : (
-                        <div className="typing-indicator">
-                          <span></span>
-                          <span></span>
-                          <span></span>
-                        </div>
-                      )}
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1007,7 +1081,6 @@ function App() {
             )}
           </div>
         </main>
-
         <footer className="footer">
           <div className="input-wrapper">
             <button className="attach-btn">
@@ -1078,6 +1151,16 @@ function App() {
         />
       )}
     </div>
+  );
+}
+
+function App() {
+  const queryClient = useMemo(() => new QueryClient(), []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
+    </QueryClientProvider>
   );
 }
 
