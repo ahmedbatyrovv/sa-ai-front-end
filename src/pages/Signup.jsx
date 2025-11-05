@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import Toast from '../components/Toast';
 import './Auth.css';
-
 function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
   const { t } = useTranslation();
   const [name, setName] = useState('');
@@ -16,43 +15,16 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [localToast, setLocalToast] = useState(null);
-
   const API_BASE = 'https://api.merdannotfound.ru';
-
   const capitalizeProvider = (provider) => provider.charAt(0).toUpperCase() + provider.slice(1);
-
   const handleSocialSignup = async (provider) => {
     setError('');
-    setLoading(true);
-    try {
-      const response = await axios.post(`${API_BASE}/api/auth/${provider}`, {}, { withCredentials: true });
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('currentUser', JSON.stringify(response.data.user));
-      setLocalToast({ message: t('account-created-with-provider', { provider: capitalizeProvider(provider) }) || `Account created with ${capitalizeProvider(provider)}`, type: 'success' });
-      setTimeout(() => {
-        setLocalToast(null);
-        if (onSignup) onSignup(response.data.user);
-      }, 3000);
-    } catch (err) {
-      if (err.response && err.response.status === 400) {
-        const errorMsg = err.response.data.message || t('failed-with-provider', { action: t('sign-up').toLowerCase(), provider: capitalizeProvider(provider) }) || `Failed to sign up with ${capitalizeProvider(provider)}`;
-        setError(errorMsg);
-      } else if (err.response && err.response.status === 500) {
-        setError(t('server-error') || 'Server error');
-      } else {
-        setError(t('network-error') || 'Network error');
-      }
-      console.error(`${provider} signup error:`, err.response?.data || err.message);
-    } finally {
-      setLoading(false);
-    }
+    setLocalToast({ message: t('coming-soon') || 'Coming Soon!', type: 'info' });
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     if (!name || !email || !password || !confirmPassword) {
       setError(t('please-fill-all-fields') || 'Please fill in all fields');
       setLoading(false);
@@ -68,10 +40,8 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
       setLoading(false);
       return;
     }
-
     try {
       const response = await axios.post(`${API_BASE}/api/auth/register`, { name, email, password });
-
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('currentUser', JSON.stringify(response.data.user));
       setLocalToast({ message: t('account-created-success') || 'Account created successfully', type: 'success' });
@@ -93,15 +63,12 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
       setLoading(false);
     }
   };
-
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
-
   const toggleConfirmPasswordVisibility = () => {
     setShowConfirmPassword(!showConfirmPassword);
   };
-
   return (
     <div className="auth-container">
       <div className="auth-modal">
@@ -110,17 +77,14 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
             <path d="M18 6L6 18M6 6L18 18" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-
         <div className="auth-header">
           <h2>{t('log-in-or-sign-up') || 'Log in or sign up'}</h2>
           <p className="auth-subtitle">{t('auth-subtitle') || "You'll get smarter responses and can upload files, images, and more."}</p>
         </div>
-
         {error && <div className="auth-error">{error}</div>}
-
         <div className="social-buttons">
-          <button 
-            className="social-btn" 
+          <button
+            className="social-btn"
             onClick={() => handleSocialSignup('google')}
             disabled={loading}
           >
@@ -132,8 +96,8 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
             </svg>
             {t('continue-with-google') || 'Continue with Google'}
           </button>
-          <button 
-            className="social-btn" 
+          <button
+            className="social-btn"
             onClick={() => handleSocialSignup('github')}
             disabled={loading}
           >
@@ -142,8 +106,8 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
             </svg>
             {t('continue-with-github') || 'Continue with GitHub'}
           </button>
-          <button 
-            className="social-btn" 
+          <button
+            className="social-btn"
             onClick={() => handleSocialSignup('phone')}
             disabled={loading}
           >
@@ -153,9 +117,7 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
             {t('continue-with-phone') || 'Continue with Phone Number'}
           </button>
         </div>
-
         <div className="divider">{t('or') || 'OR'}</div>
-
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label>{t('name') || 'Name'}</label>
@@ -168,12 +130,12 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
           <div className="form-group password-group">
             <label>{t('password') || 'Password'}</label>
             <div className="password-input-wrapper">
-              <input 
-                type={showPassword ? 'text' : 'password'} 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
-                placeholder={t('password') || 'Password'} 
-                disabled={loading} 
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t('password') || 'Password'}
+                disabled={loading}
               />
               <button type="button" className="password-toggle" onClick={togglePasswordVisibility} disabled={loading}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="eye-icon">
@@ -195,12 +157,12 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
           <div className="form-group password-group">
             <label>{t('confirm-password') || 'Confirm Password'}</label>
             <div className="password-input-wrapper">
-              <input 
-                type={showConfirmPassword ? 'text' : 'password'} 
-                value={confirmPassword} 
-                onChange={(e) => setConfirmPassword(e.target.value)} 
-                placeholder={t('confirm-password') || 'Confirm password'} 
-                disabled={loading} 
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t('confirm-password') || 'Confirm password'}
+                disabled={loading}
               />
               <button type="button" className="password-toggle" onClick={toggleConfirmPasswordVisibility} disabled={loading}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="eye-icon">
@@ -223,7 +185,6 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
             {loading ? t('creating-account') || 'Creating account...' : t('continue') || 'Continue'}
           </button>
         </form>
-
         <div className="auth-footer">
           <p>{t('already-have-account') || 'Already have an account?'} <button onClick={onSwitchToLogin} className="auth-link">{t('log-in') || 'Log in'}</button></p>
         </div>
@@ -233,5 +194,4 @@ function Signup({ onSignup, onSwitchToLogin, toast, setToast }) {
     </div>
   );
 }
-
 export default Signup;
