@@ -97,22 +97,26 @@ function AppContent() {
     );
   }, [currentChat]);
   const createMutation = useMutation({
-    mutationFn: (body) =>
-      fetch(`${API_BASE}/chat`, {
+    mutationFn: (variables) => {
+      const { isInitial, ...body } = variables;
+      return fetch(`${API_BASE}/chat`, {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(body),
       }).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json();
-      }),
-    onSuccess: (data) => {
+      });
+    },
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
       setCurrentChatId(data._id);
-      setToast({
-        message: t("new-chat-started") || "New chat started",
-        type: "info",
-      });
+      if (!variables?.isInitial) {
+        setToast({
+          message: t("new-chat-started") || "New chat started",
+          type: "info",
+        });
+      }
     },
     onError: (err) => {
       if (err.message.includes("401")) handleLogout();
@@ -228,7 +232,7 @@ function AppContent() {
     setLanguage(newLang);
   };
   const currentTitle = useMemo(() => {
-    if (!currentChatId) return "SA-AI";
+    if (!currentChatId) return "Sora";
     if (currentChat?.title && currentChat.title !== "New Chat")
       return currentChat.title;
     if (displayMessages.length > 0) {
@@ -260,7 +264,7 @@ function AppContent() {
     if (user && allChats.length > 0 && !currentChatId) {
       setCurrentChatId(allChats[allChats.length - 1]._id);
     } else if (user && allChats.length === 0 && !currentChatId) {
-      createMutation.mutate({ title: "", messages: [] });
+      createMutation.mutate({ title: "", messages: [], isInitial: true });
     }
   }, [user, allChats.length, currentChatId, createMutation]);
   useEffect(() => {
@@ -476,7 +480,7 @@ function AppContent() {
       );
     }
   }
-  const headerTitle = !currentChatId ? "SA-AI" : currentTitle;
+  const headerTitle = !currentChatId ? "Sora" : currentTitle;
   const markdownComponents = {
     p: ({ children }) => <p className="markdown-p">{children}</p>,
     code: ({ children, className }) => (
@@ -722,7 +726,7 @@ function AppContent() {
           <button
             className={`sidebar-icon ${!currentChatId ? "active" : ""}`}
             onClick={handleNewChat}
-            data-tooltip="SA-AI"
+            data-tooltip="Sora"
           >
             <svg viewBox="0 0 24 24" fill="none" className="ai-home-icon">
               <path
@@ -770,7 +774,7 @@ function AppContent() {
                 opacity="0.3"
               />
             </svg>
-            {showChatList && <span className="icon-label">SA-AI</span>}
+            {showChatList && <span className="icon-label">Sora</span>}
           </button>
           <button
             className="sidebar-icon"
@@ -1151,7 +1155,7 @@ function AppContent() {
                       strokeLinejoin="round"
                     />
                   </svg>
-                  <h1>SA-AI</h1>
+                  <h1>Sora</h1>
                 </div>
                 <div className="suggestions">
                   {safeSuggestions.map((suggestion, index) => (
@@ -1339,7 +1343,7 @@ function AppContent() {
                     strokeWidth="2"
                   />
                 </svg>
-                <span>SA-AI</span>
+                <span>Sora</span>
                 <svg viewBox="0 0 24 24" fill="none" className="chevron">
                   <path
                     d="M6 9L12 15L18 9"
