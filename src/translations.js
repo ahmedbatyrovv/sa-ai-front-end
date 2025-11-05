@@ -218,7 +218,7 @@ export const translations = {
     "name": "Ady",
     "full-name": "Doly ady",
     "email": "Email",
-    "email-address": "Email salgy",
+    "email-address": "Email adres",
     "password": "Parol",
     "confirm-password": "Paroly tassyklaň",
     "continue": "Dowam et",
