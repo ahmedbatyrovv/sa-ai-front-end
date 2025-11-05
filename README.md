@@ -62,9 +62,3 @@ Perfect for developers looking to build or prototype AI-powered chat UIs. Curren
 ### Prerequisites
 - Node.js >= 18.x
 - npm or yarn
-
-### Quick Start
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/yourusername/sa-ai-chat.git
-   cd sa-ai-chat
