@@ -1,4 +1,4 @@
-# SA-AI Chat
+# Sora AI Chat
 
 [![React](https://img.shields.io/badge/React-18.x-blue?logo=react)](https://reactjs.org/) [![TanStack Query](https://img.shields.io/badge/TanStack%20Query-v5-green?logo=react)](https://tanstack.com/query/latest/) [![Zustand](https://img.shields.io/badge/Zustand-State%20Management-orange?logo=javascript)](https://zustand-demo.pmnd.rs/) [![i18next](https://img.shields.io/badge/i18next-Internationalization-purple?logo=react)](https://react.i18next.com/)
 
