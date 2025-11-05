@@ -9,13 +9,16 @@ import {
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { FaGoogle } from 'react-icons/fa';
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Toast from "./components/Toast";
 import { useLanguageStore } from "./store/languageStore";
 import { useThemeStore } from "./store/themeStore";
 import "./App.css";
+
 const API_BASE = "https://api.merdannotfound.ru/api";
+
 function AppContent() {
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
@@ -25,6 +28,7 @@ function AppContent() {
   const setTheme = useThemeStore((state) => state.setTheme);
   const accentColor = useThemeStore((state) => state.accentColor);
   const setAccentColor = useThemeStore((state) => state.setAccentColor);
+
   const [user, setUser] = useState(null);
   const [authMode, setAuthMode] = useState("login");
   const [input, setInput] = useState("");
@@ -40,9 +44,12 @@ function AppContent() {
   const [editingTitle, setEditingTitle] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [chatToDelete, setChatToDelete] = useState(null);
+
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+
   const token = localStorage.getItem("token");
+
   const getHeaders = () => {
     const headers = {
       Authorization: `Bearer ${token}`,
@@ -50,6 +57,7 @@ function AppContent() {
     };
     return headers;
   };
+
   const { data: allChats = [] } = useQuery({
     queryKey: ["chats"],
     queryFn: () =>
@@ -69,6 +77,7 @@ function AppContent() {
       });
     },
   });
+
   const { data: currentChat } = useQuery({
     queryKey: ["chat", currentChatId],
     queryFn: () =>
@@ -86,6 +95,7 @@ function AppContent() {
       if (err.message.includes("401")) handleLogout();
     },
   });
+
   const displayMessages = useMemo(() => {
     return (
       currentChat?.messages?.map((msg, index) => ({
@@ -96,6 +106,7 @@ function AppContent() {
       })) || []
     );
   }, [currentChat]);
+
   const createMutation = useMutation({
     mutationFn: (variables) => {
       const { isInitial, ...body } = variables;
@@ -126,6 +137,7 @@ function AppContent() {
       });
     },
   });
+
   const updateChatMutation = useMutation({
     mutationFn: ({ chatId, body }) =>
       fetch(`${API_BASE}/chat/${chatId}`, {
@@ -155,6 +167,7 @@ function AppContent() {
       });
     },
   });
+
   const deleteMutation = useMutation({
     mutationFn: (chatId) => {
       console.log('Fetching DELETE for chat:', chatId, 'URL:', `${API_BASE}/chat/${chatId}`);
@@ -189,6 +202,7 @@ function AppContent() {
       });
     },
   });
+
   const sendMutation = useMutation({
     mutationFn: (content) =>
       fetch(`${API_BASE}/chat/${currentChatId}/message`, {
@@ -227,10 +241,12 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ["chat", currentChatId] });
     },
   });
+
   const handleLanguageChange = (newLang) => {
     i18n.changeLanguage(newLang);
     setLanguage(newLang);
   };
+
   const currentTitle = useMemo(() => {
     if (!currentChatId) return "Sora";
     if (currentChat?.title && currentChat.title !== "New Chat")
@@ -243,6 +259,7 @@ function AppContent() {
     }
     return t("untitled") || "Untitled";
   }, [currentChat, displayMessages, currentChatId, t]);
+
   useEffect(() => {
     const savedUserStr = localStorage.getItem("currentUser");
     const savedToken = localStorage.getItem("token");
@@ -260,6 +277,7 @@ function AppContent() {
       }
     }
   }, []);
+
   useEffect(() => {
     if (user && allChats.length > 0 && !currentChatId) {
       setCurrentChatId(allChats[allChats.length - 1]._id);
@@ -267,6 +285,7 @@ function AppContent() {
       createMutation.mutate({ title: "", messages: [], isInitial: true });
     }
   }, [user, allChats.length, currentChatId, createMutation]);
+
   useEffect(() => {
     if (
       currentChat &&
@@ -283,6 +302,7 @@ function AppContent() {
       });
     }
   }, [displayMessages.length, currentChat?.title, updateChatMutation, currentChatId]);
+
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleThemeChange = (e) => {
@@ -302,9 +322,11 @@ function AppContent() {
       }
     };
   }, [setTheme]);
+
   useEffect(() => {
     document.body.className = `${theme} accent-${accentColor}`;
   }, [theme, accentColor]);
+
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth <= 768;
@@ -319,6 +341,7 @@ function AppContent() {
       window.removeEventListener("orientationchange", checkMobile);
     };
   }, []);
+
   useEffect(() => {
     if (isMobile && sidebarOpen) {
       document.body.style.overflow = "hidden";
@@ -329,13 +352,16 @@ function AppContent() {
       document.body.style.overflow = "unset";
     };
   }, [isMobile, sidebarOpen]);
+
   useEffect(() => {
     scrollToBottom();
     adjustTextareaHeight();
   }, [displayMessages, isTyping, input]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current;
     if (textarea) {
@@ -343,12 +369,15 @@ function AppContent() {
       textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px";
     }
   };
+
   const handleLogin = (user) => {
     setUser(user);
   };
+
   const handleSignup = (user) => {
     setUser(user);
   };
+
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
@@ -359,6 +388,7 @@ function AppContent() {
     setShowSettings(false);
     queryClient.clear();
   };
+
   const handleNewChat = () => {
     if (!token) {
       setToast({ message: "Please log in first", type: "error" });
@@ -374,6 +404,7 @@ function AppContent() {
       }
     );
   };
+
   const handleClearChat = () => {
     if (currentChatId) {
       updateChatMutation.mutate(
@@ -390,15 +421,19 @@ function AppContent() {
       );
     }
   };
+
   const handleSettings = () => {
     setShowSettings(true);
   };
+
   const handleThemeToggle = () => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
+
   const handleAccentChange = (newAccent) => {
     setAccentColor(newAccent);
   };
+
   const handleSend = () => {
     if (!input.trim() || isTyping || !token) {
       if (!token) setToast({ message: "Please log in", type: "error" });
@@ -418,33 +453,39 @@ function AppContent() {
       sendMutation.mutate(input);
     }
   };
+
   const handleKeyPress = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
+
   const handleOpenDeleteModal = (chatId) => {
     setChatToDelete(chatId);
     setShowDeleteModal(true);
   };
+
   const handleConfirmDelete = () => {
     if (chatToDelete) {
       deleteMutation.mutate(chatToDelete);
     }
   };
+
   const handleCancelDelete = () => {
     setShowDeleteModal(false);
     setChatToDelete(null);
   };
+
   const suggestions = t("suggestions");
   const safeSuggestions = Array.isArray(suggestions)
     ? suggestions
     : [
         { text: "What can you help me with?", icon: "search" },
-        { text: "Explain quantum computing", icon: "news" },
-        { text: "Help me write code", icon: "personas" },
+        { text: "Объясни квантовые вычесления", icon: "news" },
+        { text: "Maňa kod ýazmaga kömek et", icon: "personas" },
       ];
+
   const filteredChats = useMemo(() => {
     if (!searchQuery.trim()) return allChats;
     return allChats.filter((chat) => {
@@ -459,6 +500,7 @@ function AppContent() {
       return titleMatch || previewMatch;
     });
   }, [allChats, searchQuery]);
+
   if (!user) {
     if (authMode === "login") {
       return (
@@ -480,7 +522,9 @@ function AppContent() {
       );
     }
   }
+
   const headerTitle = !currentChatId ? "Sora" : currentTitle;
+
   const markdownComponents = {
     p: ({ children }) => <p className="markdown-p">{children}</p>,
     code: ({ children, className }) => (
@@ -508,6 +552,7 @@ function AppContent() {
       </a>
     ),
   };
+
   if (showSettings) {
     return (
       <div className={`app ${theme} accent-${accentColor}`}>
@@ -714,7 +759,9 @@ function AppContent() {
       </div>
     );
   }
+
   const userInitial = user?.name?.charAt(0).toUpperCase() || "U";
+
   return (
     <div className={`app ${theme} accent-${accentColor}`}>
       <aside
@@ -1335,24 +1382,12 @@ function AppContent() {
               disabled={isTyping}
             />
             <div className="input-actions">
-              <button className="model-selector">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                </svg>
-                <span>Sora</span>
-                <svg viewBox="0 0 24 24" fill="none" className="chevron">
-                  <path
-                    d="M6 9L12 15L18 9"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+              {/* Новая кнопка с иконкой Google вместо model-selector */}
+              <button className="google-btn" onClick={() => {
+                // Тут добавь свою логику, напр. window.open('https://google.com/search?q=' + input, '_blank');
+                console.log('Google search triggered!');
+              }}>
+                <FaGoogle className="google-icon" />
               </button>
               <button
                 className="voice-btn"
@@ -1403,6 +1438,7 @@ function AppContent() {
     </div>
   );
 }
+
 function App() {
   const queryClient = useMemo(() => new QueryClient(), []);
   return (
@@ -1411,4 +1447,5 @@ function App() {
     </QueryClientProvider>
   );
 }
+
 export default App;
