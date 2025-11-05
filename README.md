@@ -56,9 +56,3 @@ Perfect for developers looking to build or prototype AI-powered chat UIs. Curren
 - **Auth & HTTP**: [Axios](https://axios-http.com/) for login/signup; native `fetch` for chat ops.
 - **Other Utils**: `useMemo` for computed values (e.g., filtered chats, titles); `useRef` for DOM refs (scroll, textarea auto-resize).
 - **Backend Dependency**: RESTful API (see [API Integration](#api-integration) below); no server-side code included.
-
-## 📦 Installation & Setup
-
-### Prerequisites
-- Node.js >= 18.x
-- npm or yarn
