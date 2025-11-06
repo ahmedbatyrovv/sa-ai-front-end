@@ -47,7 +47,7 @@ function AppContent() {
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
-  // Ref для предотвращения дублирующихся автосозданий (на случай race condition)
+  // Ref для предотвращения дублирующихся автосозданий чатов (фикс race condition)
   const creatingRef = useRef(false);
 
   const token = localStorage.getItem("token");
@@ -60,7 +60,8 @@ function AppContent() {
     return headers;
   };
 
-  const { data: allChats = [] } = useQuery({
+  // Обновлённый useQuery: data по умолчанию undefined (не []), чтобы избежать ложного length=0 при loading
+  const { data: allChatsData, isSuccess: chatsLoaded } = useQuery({
     queryKey: ["chats"],
     queryFn: () =>
       fetch(`${API_BASE}/chat`, { headers: getHeaders() }).then((r) => {
@@ -79,6 +80,9 @@ function AppContent() {
       });
     },
   });
+
+  // allChats теперь undefined во время loading, чтобы эффект ждал реальных данных
+  const allChats = allChatsData || [];
 
   const { data: currentChat } = useQuery({
     queryKey: ["chat", currentChatId],
@@ -121,28 +125,48 @@ function AppContent() {
         return r.json();
       });
     },
-    onSuccess: (data, variables) => {
+    onMutate: async (variables) => {
+      // Optimistic update для немедленного переключения на новый чат (фикс мигания предыдущим)
+      await queryClient.cancelQueries({ queryKey: ["chats"] });
+      const previousChats = queryClient.getQueryData(["chats"]);
+      const optimisticId = `optimistic-${Date.now()}`; // Временный ID
+      const optimisticChat = { _id: optimisticId, title: "", messages: [] };
+      queryClient.setQueryData(["chats"], (old) => [...(old || []), optimisticChat]);
+      setCurrentChatId(optimisticId); // Сразу переключаемся на "новый"
+      return { previousChats };
+    },
+    onSuccess: (data, variables, context) => {
+      // Заменяем optimistic на реальный
+      queryClient.setQueryData(["chats"], (old) =>
+        old?.map((chat) =>
+          chat._id === `optimistic-${data._id}` ? data : chat
+        ) || [data]
+      );
+      setCurrentChatId(data._id); // Финальный set
       queryClient.invalidateQueries({ queryKey: ["chats"] });
-      setCurrentChatId(data._id);
-      // Если это начальный чат — устанавливаем флаг в localStorage (чтобы не создавать заново при рефреше)
-      if (variables?.isInitial) {
-        localStorage.setItem("hasInitialChat", "true");
-      }
-      creatingRef.current = false;
+      creatingRef.current = false; // Сброс флага
       if (!variables?.isInitial) {
         setToast({
           message: t("new-chat-started") || "New chat started",
           type: "info",
         });
       }
+      // Восстановление при ошибке (но здесь успех)
+      if (context?.previousChats) {
+        queryClient.setQueryData(["chats"], context.previousChats);
+      }
     },
-    onError: (err) => {
+    onError: (err, variables, context) => {
+      if (context?.previousChats) {
+        queryClient.setQueryData(["chats"], context.previousChats);
+      }
       if (err.message.includes("401")) handleLogout();
       setToast({
         message: `Create chat failed: ${err.message}`,
         type: "error",
       });
-      creatingRef.current = false;
+      creatingRef.current = false; // Сброс флага
+      setCurrentChatId(null); // Сброс, если optimistic failed
     },
   });
 
@@ -204,6 +228,7 @@ function AppContent() {
     onError: (err) => {
       console.error('Delete error:', err);
       if (err.message.includes("401")) handleLogout();
+      // Тихая обработка 404 (чат уже удалён)
       if (err.message.includes("404")) {
         console.log('Chat already deleted (404), ignoring...');
         queryClient.invalidateQueries({ queryKey: ["chats"] });
@@ -273,55 +298,62 @@ function AppContent() {
     return t("untitled") || "Untitled";
   }, [currentChat, displayMessages, currentChatId, t]);
 
-  // useEffect для загрузки пользователя из localStorage
+  // useEffect для загрузки пользователя из localStorage (без изменений)
   useEffect(() => {
     const savedUserStr = localStorage.getItem("currentUser");
     const savedToken = localStorage.getItem("token");
+    const savedCurrentChatId = localStorage.getItem("currentChatId"); // Загрузка текущего чата при refresh
     if (savedUserStr && savedUserStr !== "undefined") {
       try {
         const parsedUser = JSON.parse(savedUserStr);
         if (parsedUser && savedToken) {
           setUser(parsedUser);
+          if (savedCurrentChatId) {
+            setCurrentChatId(savedCurrentChatId); // Восстанавливаем текущий чат
+          }
         } else {
           localStorage.removeItem("currentUser");
           localStorage.removeItem("token");
+          localStorage.removeItem("currentChatId");
         }
       } catch (e) {
         localStorage.removeItem("currentUser");
+        localStorage.removeItem("currentChatId");
       }
     }
   }, []);
 
-  // Переписанный useEffect для автосоздания (теперь с проверкой флага в localStorage — фикс рефреша)
+  // useEffect для сохранения currentChatId в localStorage (при смене)
+  useEffect(() => {
+    if (currentChatId) {
+      localStorage.setItem("currentChatId", currentChatId);
+    }
+  }, [currentChatId]);
+
+  // Переписанный useEffect для автосоздания: ждёт реальной загрузки чатов (chatsLoaded && allChatsData.length === 0)
   useEffect(() => {
     // Лог для дебага (убери в проде)
     console.log('Auto-create effect triggered:', { 
       hasUser: !!user, 
+      chatsLoaded, 
       chatsCount: allChats.length, 
       currentId: currentChatId, 
-      hasInitialFlag: localStorage.getItem("hasInitialChat"),
       isCreating: creatingRef.current 
     });
 
-    // Проверяем флаг: автосоздание только если это первый вход (нет флага в localStorage)
-    const hasInitialChatFlag = localStorage.getItem("hasInitialChat") === "true";
-
     if (
       user &&  // Пользователь авторизован
-      allChats.length === 0 &&  // Нет ни одного чата
+      chatsLoaded &&  // Чаты реально загружены (isSuccess)
+      allChatsData.length === 0 &&  // Нет ни одного чата (реальные данные)
       !currentChatId &&  // Не выбран текущий чат
-      !hasInitialChatFlag &&  // Нет флага (первый запуск)
-      !creatingRef.current  // Ref-блокировка на случай race
+      !creatingRef.current  // Флаг блокирует повторные вызовы
     ) {
-      creatingRef.current = true;
+      creatingRef.current = true;  // Блокируем
       createMutation.mutate({ title: "", messages: [], isInitial: true });
-    } else if (allChats.length > 0 && !currentChatId) {
-      // Если чаты есть, но не выбран — выбираем последний (без создания)
-      setCurrentChatId(allChats[allChats.length - 1]._id);
     }
-  }, [user, allChats.length, currentChatId]);
+  }, [user, chatsLoaded, allChatsData?.length, currentChatId]);  // Deps на реальные данные
 
-  // useEffect для автогенерации заголовка чата
+  // useEffect для автогенерации заголовка чата (без изменений)
   useEffect(() => {
     if (
       currentChat &&
@@ -339,7 +371,7 @@ function AppContent() {
     }
   }, [displayMessages.length, currentChat?.title, updateChatMutation, currentChatId]);
 
-  // useEffect для темы (prefers-color-scheme)
+  // Остальные useEffect без изменений (тема, мобильный, скролл и т.д.)
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleThemeChange = (e) => {
@@ -360,12 +392,10 @@ function AppContent() {
     };
   }, [setTheme]);
 
-  // useEffect для применения темы к body
   useEffect(() => {
     document.body.className = `${theme} accent-${accentColor}`;
   }, [theme, accentColor]);
 
-  // useEffect для детекции мобильного
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth <= 768;
@@ -381,7 +411,6 @@ function AppContent() {
     };
   }, []);
 
-  // useEffect для блокировки скролла на мобильном
   useEffect(() => {
     if (isMobile && sidebarOpen) {
       document.body.style.overflow = "hidden";
@@ -393,7 +422,6 @@ function AppContent() {
     };
   }, [isMobile, sidebarOpen]);
 
-  // useEffect для скролла и высоты textarea
   useEffect(() => {
     scrollToBottom();
     adjustTextareaHeight();
@@ -413,21 +441,17 @@ function AppContent() {
 
   const handleLogin = (user) => {
     setUser(user);
-    // При первом логине сбрасываем флаг (если нужно начать заново)
-    localStorage.removeItem("hasInitialChat");
   };
 
   const handleSignup = (user) => {
     setUser(user);
-    // При первом логине сбрасываем флаг (если нужно начать заново)
-    localStorage.removeItem("hasInitialChat");
   };
 
-  // Обновлённый handleLogout с сбросом флага
+  // Обновлённый handleLogout: сброс localStorage для currentChatId
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
-    localStorage.removeItem("hasInitialChat");  // Сброс флага при выходе
+    localStorage.removeItem("currentChatId"); // Сброс текущего чата
     setToast({ message: t("logged-out") || "Logged out", type: "info" });
     setUser(null);
     setCurrentChatId(null);
@@ -442,15 +466,8 @@ function AppContent() {
       setToast({ message: "Please log in first", type: "error" });
       return;
     }
-    createMutation.mutate(
-      { title: "", messages: [] },
-      {
-        onSuccess: () => {
-          setInput("");
-          setShowChatList(false);
-        },
-      }
-    );
+    console.log('Creating new chat...'); // Дебаг-лог
+    createMutation.mutate({ title: "", messages: [] });
   };
 
   const handleClearChat = () => {
