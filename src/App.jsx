@@ -47,7 +47,7 @@ function AppContent() {
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
-  // Новый ref для предотвращения дублирующихся автосозданий чатов (фикс race condition)
+  // Ref для предотвращения дублирующихся автосозданий (на случай race condition)
   const creatingRef = useRef(false);
 
   const token = localStorage.getItem("token");
@@ -112,21 +112,23 @@ function AppContent() {
   const createMutation = useMutation({
     mutationFn: (variables) => {
       const { isInitial, ...body } = variables;
-      // Устанавливаем дефолтный title "New Chat" при создании
-      const chatBody = { ...body, title: "New Chat" };
       return fetch(`${API_BASE}/chat`, {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify(chatBody),
+        body: JSON.stringify(body),
       }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`); // Улучшенная ошибка с statusText
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
         return r.json();
       });
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
       setCurrentChatId(data._id);
-      creatingRef.current = false; // Сброс флага после успеха (фикс дубликатов)
+      // Если это начальный чат — устанавливаем флаг в localStorage (чтобы не создавать заново при рефреше)
+      if (variables?.isInitial) {
+        localStorage.setItem("hasInitialChat", "true");
+      }
+      creatingRef.current = false;
       if (!variables?.isInitial) {
         setToast({
           message: t("new-chat-started") || "New chat started",
@@ -140,7 +142,7 @@ function AppContent() {
         message: `Create chat failed: ${err.message}`,
         type: "error",
       });
-      creatingRef.current = false; // Сброс флага при ошибке
+      creatingRef.current = false;
     },
   });
 
@@ -151,7 +153,7 @@ function AppContent() {
         headers: getHeaders(),
         body: JSON.stringify(body),
       }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`); // Улучшенная ошибка
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
         return r.json();
       }),
     onSuccess: (_, { chatId }) => {
@@ -181,7 +183,7 @@ function AppContent() {
         method: "DELETE",
         headers: getHeaders(),
       }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`); // Улучшенная ошибка для 404 и т.д.
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
         return r;
       });
     },
@@ -202,10 +204,9 @@ function AppContent() {
     onError: (err) => {
       console.error('Delete error:', err);
       if (err.message.includes("401")) handleLogout();
-      // Специальная обработка 404: не показываем тост, если чат уже удалён
       if (err.message.includes("404")) {
         console.log('Chat already deleted (404), ignoring...');
-        queryClient.invalidateQueries({ queryKey: ["chats"] }); // Всё равно обновляем список
+        queryClient.invalidateQueries({ queryKey: ["chats"] });
       } else {
         setToast({
           message: t("delete-failed") || `Delete failed: ${err.message}`,
@@ -259,23 +260,20 @@ function AppContent() {
     setLanguage(newLang);
   };
 
-  // Обновлённый currentTitle: используем первое сообщение как заголовок, если title дефолтный
   const currentTitle = useMemo(() => {
     if (!currentChatId) return "Sora";
-    if (currentChat?.title && currentChat.title !== "New Chat") {
+    if (currentChat?.title && currentChat.title !== "New Chat")
       return currentChat.title;
-    }
-    if (displayMessages.length > 0 && displayMessages[0].sender === "user") {
-      // Берём первое сообщение пользователя (или его short explanation) как заголовок
+    if (displayMessages.length > 0) {
       return (
         displayMessages[0].text.substring(0, 50) +
         (displayMessages[0].text.length > 50 ? "..." : "")
       );
     }
-    return "New Chat";  // Дефолт, если нет сообщений
-  }, [currentChat, displayMessages, currentChatId]);
+    return t("untitled") || "Untitled";
+  }, [currentChat, displayMessages, currentChatId, t]);
 
-  // useEffect для загрузки пользователя из localStorage (без изменений)
+  // useEffect для загрузки пользователя из localStorage
   useEffect(() => {
     const savedUserStr = localStorage.getItem("currentUser");
     const savedToken = localStorage.getItem("token");
@@ -294,46 +292,54 @@ function AppContent() {
     }
   }, []);
 
-  // Переписанный useEffect для автосоздания чата (фикс дубликатов и циклов)
+  // Переписанный useEffect для автосоздания (теперь с проверкой флага в localStorage — фикс рефреша)
   useEffect(() => {
-    // Лог для дебага (убери в продакшене)
+    // Лог для дебага (убери в проде)
     console.log('Auto-create effect triggered:', { 
       hasUser: !!user, 
       chatsCount: allChats.length, 
       currentId: currentChatId, 
+      hasInitialFlag: localStorage.getItem("hasInitialChat"),
       isCreating: creatingRef.current 
     });
+
+    // Проверяем флаг: автосоздание только если это первый вход (нет флага в localStorage)
+    const hasInitialChatFlag = localStorage.getItem("hasInitialChat") === "true";
 
     if (
       user &&  // Пользователь авторизован
       allChats.length === 0 &&  // Нет ни одного чата
       !currentChatId &&  // Не выбран текущий чат
-      !creatingRef.current  // Флаг блокирует повторные вызовы
+      !hasInitialChatFlag &&  // Нет флага (первый запуск)
+      !creatingRef.current  // Ref-блокировка на случай race
     ) {
-      creatingRef.current = true;  // Блокируем повторные автосоздания
-      createMutation.mutate({ title: "New Chat", messages: [], isInitial: true });
+      creatingRef.current = true;
+      createMutation.mutate({ title: "", messages: [], isInitial: true });
+    } else if (allChats.length > 0 && !currentChatId) {
+      // Если чаты есть, но не выбран — выбираем последний (без создания)
+      setCurrentChatId(allChats[allChats.length - 1]._id);
     }
-  }, [user, allChats.length, currentChatId]);  // Только стабильные deps, без мутации и флага
+  }, [user, allChats.length, currentChatId]);
 
-  // Обновлённый useEffect для автогенерации заголовка: срабатывает сразу после первого user-сообщения
+  // useEffect для автогенерации заголовка чата
   useEffect(() => {
     if (
       currentChat &&
-      (currentChat.title === "New Chat" || !currentChat.title) &&  // Если дефолтный title
-      displayMessages.length >= 1 &&  // Есть хотя бы одно сообщение
-      displayMessages[0].sender === "user"  // Первое — от пользователя
+      currentChat.title === "New Chat" &&
+      displayMessages.length >= 2 &&
+      displayMessages[0].sender === "user"
     ) {
       const newTitle =
-        displayMessages[0].text.substring(0, 50) +  // Короткое объяснение/текст первого сообщения
+        displayMessages[0].text.substring(0, 50) +
         (displayMessages[0].text.length > 50 ? "..." : "");
       updateChatMutation.mutate({
         chatId: currentChatId,
         body: { title: newTitle },
       });
     }
-  }, [displayMessages, currentChat?.title, updateChatMutation, currentChatId]);  // Зависимости: обновляем при смене сообщений или title
+  }, [displayMessages.length, currentChat?.title, updateChatMutation, currentChatId]);
 
-  // useEffect для темы (prefers-color-scheme) — без изменений
+  // useEffect для темы (prefers-color-scheme)
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleThemeChange = (e) => {
@@ -354,12 +360,12 @@ function AppContent() {
     };
   }, [setTheme]);
 
-  // useEffect для применения темы к body — без изменений
+  // useEffect для применения темы к body
   useEffect(() => {
     document.body.className = `${theme} accent-${accentColor}`;
   }, [theme, accentColor]);
 
-  // useEffect для детекции мобильного — без изменений
+  // useEffect для детекции мобильного
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth <= 768;
@@ -375,7 +381,7 @@ function AppContent() {
     };
   }, []);
 
-  // useEffect для блокировки скролла на мобильном — без изменений
+  // useEffect для блокировки скролла на мобильном
   useEffect(() => {
     if (isMobile && sidebarOpen) {
       document.body.style.overflow = "hidden";
@@ -387,7 +393,7 @@ function AppContent() {
     };
   }, [isMobile, sidebarOpen]);
 
-  // useEffect для скролла и высоты textarea — без изменений
+  // useEffect для скролла и высоты textarea
   useEffect(() => {
     scrollToBottom();
     adjustTextareaHeight();
@@ -407,22 +413,27 @@ function AppContent() {
 
   const handleLogin = (user) => {
     setUser(user);
+    // При первом логине сбрасываем флаг (если нужно начать заново)
+    localStorage.removeItem("hasInitialChat");
   };
 
   const handleSignup = (user) => {
     setUser(user);
+    // При первом логине сбрасываем флаг (если нужно начать заново)
+    localStorage.removeItem("hasInitialChat");
   };
 
   // Обновлённый handleLogout с сбросом флага
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
+    localStorage.removeItem("hasInitialChat");  // Сброс флага при выходе
     setToast({ message: t("logged-out") || "Logged out", type: "info" });
     setUser(null);
     setCurrentChatId(null);
     setInput("");
     setShowSettings(false);
-    creatingRef.current = false;  // Сброс флага для чистоты
+    creatingRef.current = false;
     queryClient.clear();
   };
 
@@ -432,7 +443,7 @@ function AppContent() {
       return;
     }
     createMutation.mutate(
-      { title: "New Chat", messages: [] },  // Дефолтный title при ручном создании
+      { title: "", messages: [] },
       {
         onSuccess: () => {
           setInput("");
@@ -478,7 +489,7 @@ function AppContent() {
     }
     if (!currentChatId) {
       createMutation.mutate(
-        { title: "New Chat", messages: [] },
+        { title: "", messages: [] },
         {
           onSuccess: (newChat) => {
             setCurrentChatId(newChat._id);
@@ -980,7 +991,7 @@ function AppContent() {
                   .reverse()
                   .map((chat) => {
                     const isEditing = editingChatId === chat._id;
-                    const chatTitle = chat.title || "New Chat";  // Дефолт "New Chat", если нет title
+                    const chatTitle = chat.title || t("untitled") || "Untitled";
                     return (
                       <div
                         key={chat._id}
