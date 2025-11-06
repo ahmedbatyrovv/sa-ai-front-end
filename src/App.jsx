@@ -47,6 +47,8 @@ function AppContent() {
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  // Новый ref для предотвращения дублирующихся автосозданий чатов (фикс race condition)
+  const creatingRef = useRef(false);
 
   const token = localStorage.getItem("token");
 
@@ -110,18 +112,21 @@ function AppContent() {
   const createMutation = useMutation({
     mutationFn: (variables) => {
       const { isInitial, ...body } = variables;
+      // Устанавливаем дефолтный title "New Chat" при создании
+      const chatBody = { ...body, title: "New Chat" };
       return fetch(`${API_BASE}/chat`, {
         method: "POST",
         headers: getHeaders(),
-        body: JSON.stringify(body),
+        body: JSON.stringify(chatBody),
       }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`); // Улучшенная ошибка с statusText
         return r.json();
       });
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["chats"] });
       setCurrentChatId(data._id);
+      creatingRef.current = false; // Сброс флага после успеха (фикс дубликатов)
       if (!variables?.isInitial) {
         setToast({
           message: t("new-chat-started") || "New chat started",
@@ -135,6 +140,7 @@ function AppContent() {
         message: `Create chat failed: ${err.message}`,
         type: "error",
       });
+      creatingRef.current = false; // Сброс флага при ошибке
     },
   });
 
@@ -145,7 +151,7 @@ function AppContent() {
         headers: getHeaders(),
         body: JSON.stringify(body),
       }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`); // Улучшенная ошибка
         return r.json();
       }),
     onSuccess: (_, { chatId }) => {
@@ -175,7 +181,7 @@ function AppContent() {
         method: "DELETE",
         headers: getHeaders(),
       }).then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`); // Улучшенная ошибка для 404 и т.д.
         return r;
       });
     },
@@ -196,10 +202,16 @@ function AppContent() {
     onError: (err) => {
       console.error('Delete error:', err);
       if (err.message.includes("401")) handleLogout();
-      setToast({
-        message: t("delete-failed") || `Delete failed: ${err.message}`,
-        type: "error",
-      });
+      // Специальная обработка 404: не показываем тост, если чат уже удалён
+      if (err.message.includes("404")) {
+        console.log('Chat already deleted (404), ignoring...');
+        queryClient.invalidateQueries({ queryKey: ["chats"] }); // Всё равно обновляем список
+      } else {
+        setToast({
+          message: t("delete-failed") || `Delete failed: ${err.message}`,
+          type: "error",
+        });
+      }
     },
   });
 
@@ -247,19 +259,23 @@ function AppContent() {
     setLanguage(newLang);
   };
 
+  // Обновлённый currentTitle: используем первое сообщение как заголовок, если title дефолтный
   const currentTitle = useMemo(() => {
     if (!currentChatId) return "Sora";
-    if (currentChat?.title && currentChat.title !== "New Chat")
+    if (currentChat?.title && currentChat.title !== "New Chat") {
       return currentChat.title;
-    if (displayMessages.length > 0) {
+    }
+    if (displayMessages.length > 0 && displayMessages[0].sender === "user") {
+      // Берём первое сообщение пользователя (или его short explanation) как заголовок
       return (
         displayMessages[0].text.substring(0, 50) +
         (displayMessages[0].text.length > 50 ? "..." : "")
       );
     }
-    return t("untitled") || "Untitled";
-  }, [currentChat, displayMessages, currentChatId, t]);
+    return "New Chat";  // Дефолт, если нет сообщений
+  }, [currentChat, displayMessages, currentChatId]);
 
+  // useEffect для загрузки пользователя из localStorage (без изменений)
   useEffect(() => {
     const savedUserStr = localStorage.getItem("currentUser");
     const savedToken = localStorage.getItem("token");
@@ -278,31 +294,46 @@ function AppContent() {
     }
   }, []);
 
+  // Переписанный useEffect для автосоздания чата (фикс дубликатов и циклов)
   useEffect(() => {
-    if (user && allChats.length > 0 && !currentChatId) {
-      setCurrentChatId(allChats[allChats.length - 1]._id);
-    } else if (user && allChats.length === 0 && !currentChatId) {
-      createMutation.mutate({ title: "", messages: [], isInitial: true });
-    }
-  }, [user, allChats.length, currentChatId, createMutation]);
+    // Лог для дебага (убери в продакшене)
+    console.log('Auto-create effect triggered:', { 
+      hasUser: !!user, 
+      chatsCount: allChats.length, 
+      currentId: currentChatId, 
+      isCreating: creatingRef.current 
+    });
 
+    if (
+      user &&  // Пользователь авторизован
+      allChats.length === 0 &&  // Нет ни одного чата
+      !currentChatId &&  // Не выбран текущий чат
+      !creatingRef.current  // Флаг блокирует повторные вызовы
+    ) {
+      creatingRef.current = true;  // Блокируем повторные автосоздания
+      createMutation.mutate({ title: "New Chat", messages: [], isInitial: true });
+    }
+  }, [user, allChats.length, currentChatId]);  // Только стабильные deps, без мутации и флага
+
+  // Обновлённый useEffect для автогенерации заголовка: срабатывает сразу после первого user-сообщения
   useEffect(() => {
     if (
       currentChat &&
-      currentChat.title === "New Chat" &&
-      displayMessages.length >= 2 &&
-      displayMessages[0].sender === "user"
+      (currentChat.title === "New Chat" || !currentChat.title) &&  // Если дефолтный title
+      displayMessages.length >= 1 &&  // Есть хотя бы одно сообщение
+      displayMessages[0].sender === "user"  // Первое — от пользователя
     ) {
       const newTitle =
-        displayMessages[0].text.substring(0, 50) +
+        displayMessages[0].text.substring(0, 50) +  // Короткое объяснение/текст первого сообщения
         (displayMessages[0].text.length > 50 ? "..." : "");
       updateChatMutation.mutate({
         chatId: currentChatId,
         body: { title: newTitle },
       });
     }
-  }, [displayMessages.length, currentChat?.title, updateChatMutation, currentChatId]);
+  }, [displayMessages, currentChat?.title, updateChatMutation, currentChatId]);  // Зависимости: обновляем при смене сообщений или title
 
+  // useEffect для темы (prefers-color-scheme) — без изменений
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleThemeChange = (e) => {
@@ -323,10 +354,12 @@ function AppContent() {
     };
   }, [setTheme]);
 
+  // useEffect для применения темы к body — без изменений
   useEffect(() => {
     document.body.className = `${theme} accent-${accentColor}`;
   }, [theme, accentColor]);
 
+  // useEffect для детекции мобильного — без изменений
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth <= 768;
@@ -342,6 +375,7 @@ function AppContent() {
     };
   }, []);
 
+  // useEffect для блокировки скролла на мобильном — без изменений
   useEffect(() => {
     if (isMobile && sidebarOpen) {
       document.body.style.overflow = "hidden";
@@ -353,6 +387,7 @@ function AppContent() {
     };
   }, [isMobile, sidebarOpen]);
 
+  // useEffect для скролла и высоты textarea — без изменений
   useEffect(() => {
     scrollToBottom();
     adjustTextareaHeight();
@@ -378,6 +413,7 @@ function AppContent() {
     setUser(user);
   };
 
+  // Обновлённый handleLogout с сбросом флага
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("token");
@@ -386,6 +422,7 @@ function AppContent() {
     setCurrentChatId(null);
     setInput("");
     setShowSettings(false);
+    creatingRef.current = false;  // Сброс флага для чистоты
     queryClient.clear();
   };
 
@@ -395,7 +432,7 @@ function AppContent() {
       return;
     }
     createMutation.mutate(
-      { title: "", messages: [] },
+      { title: "New Chat", messages: [] },  // Дефолтный title при ручном создании
       {
         onSuccess: () => {
           setInput("");
@@ -441,7 +478,7 @@ function AppContent() {
     }
     if (!currentChatId) {
       createMutation.mutate(
-        { title: "", messages: [] },
+        { title: "New Chat", messages: [] },
         {
           onSuccess: (newChat) => {
             setCurrentChatId(newChat._id);
@@ -482,7 +519,7 @@ function AppContent() {
     ? suggestions
     : [
         { text: "What can you help me with?", icon: "search" },
-        { text: "Объясни квантовые вычесления", icon: "news" },
+        { text: "Объясни квантовые вычисления", icon: "news" },
         { text: "Maňa kod ýazmaga kömek et", icon: "personas" },
       ];
 
@@ -943,7 +980,7 @@ function AppContent() {
                   .reverse()
                   .map((chat) => {
                     const isEditing = editingChatId === chat._id;
-                    const chatTitle = chat.title || t("untitled") || "Untitled";
+                    const chatTitle = chat.title || "New Chat";  // Дефолт "New Chat", если нет title
                     return (
                       <div
                         key={chat._id}
@@ -1382,9 +1419,7 @@ function AppContent() {
               disabled={isTyping}
             />
             <div className="input-actions">
-              {/* Новая кнопка с иконкой Google вместо model-selector */}
               <button className="google-btn" onClick={() => {
-                // Тут добавь свою логику, напр. window.open('https://google.com/search?q=' + input, '_blank');
                 console.log('Google search triggered!');
               }}>
                 <FaGoogle className="google-icon" />
