@@ -175,7 +175,7 @@ export const translations = {
     "title-updated": "Söhbetdeşligiň ady üýtgedildi",
     "chat-deleted": "Söhbet pozuldy",
     "delete-failed": "Pozmak başartmady",
-    "delete-chat-confirm": "Bu söhbeti pozmakmy?",
+    "delete-chat-confirm": "Bu söhbeti pozmakçymy?",
     "delete-chat-message": "Bu söhbeti pozmak isleýäniňize ynamlymy? Bu hereketi yzyna alyp bolmaýar.",
     "cancel": "Ýatyr",
     "delete": "Poz",
